@@ -32,7 +32,9 @@ def generate(
 
     TODO(day-2): wire to ledgerloop.generate.synth.
     """
-    console.print(f"[yellow]not implemented[/] — generate {records} records, {fixture}, seed {seed}")
+    console.print(
+        f"[yellow]not implemented[/] — generate {records} records, {fixture}, seed {seed}"
+    )
     raise typer.Exit(code=1)
 
 

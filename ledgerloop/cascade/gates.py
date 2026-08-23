@@ -20,10 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from pydantic import ValidationError
-
 from ledgerloop.exceptions.codes import ExceptionCode
-from ledgerloop.llm.contract import CONFIDENCE_THRESHOLD, Adjudication
+from ledgerloop.llm.contract import Adjudication
 
 
 @dataclass(frozen=True)
