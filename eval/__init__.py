@@ -1,0 +1,1 @@
+"""Evaluation harness. THE ONLY PACKAGE PERMITTED TO READ GROUND TRUTH."""

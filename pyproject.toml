@@ -1,0 +1,60 @@
+[project]
+name = "ledgerloop"
+version = "0.1.0"
+description = "Deterministic-first three-source settlement reconciliation with an honest exception queue."
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.7",
+    "typer>=0.12",
+    "rich>=13.7",
+    "pandas>=2.2",
+    "rapidfuzz>=3.9",
+    "sqlalchemy>=2.0",
+    "python-dateutil>=2.9",
+    "pyyaml>=6.0",
+    "httpx>=0.27",
+    "fastapi>=0.111",
+    "uvicorn>=0.30",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-cov>=5.0",
+    "hypothesis>=6.100",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+ledgerloop = "ledgerloop.cli:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["ledgerloop*", "eval*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+# Strict only where correctness is load-bearing. Widen as the project stabilises;
+# do not turn it off to make a red build green.
+[[tool.mypy.overrides]]
+module = ["ledgerloop.cascade.*", "ledgerloop.llm.*", "ledgerloop.money", "ledgerloop.generate.fee_model"]
+strict = true

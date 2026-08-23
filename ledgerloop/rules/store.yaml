@@ -1,0 +1,5 @@
+# Rule store.
+# Populated at runtime by ledgerloop/rules/promote.py when a human resolves an
+# exception and approves the generalised rule. Committing this file lets a reviewer
+# see exactly what the system learned during the demo.
+rules: []
