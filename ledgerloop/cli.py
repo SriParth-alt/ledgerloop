@@ -12,6 +12,8 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from ledgerloop.generate.synth import generate_fixture
+
 app = typer.Typer(
     name="ledgerloop",
     help="Deterministic-first settlement reconciliation.",
@@ -30,12 +32,24 @@ def generate(
 ) -> None:
     """Generate a synthetic three-source batch plus hidden ground truth.
 
-    TODO(day-2): wire to ledgerloop.generate.synth.
+    The output paths are reported by iterating what the generator returns rather than
+    naming the files here. That is not stylistic: this module sits outside the one
+    package permitted to speak about ground truth, and tests/test_no_truth_leak.py
+    enforces the boundary by scanning for the tokens a literal would introduce.
     """
+    try:
+        paths = generate_fixture(fixture=fixture, settlements=records, seed=seed, out_dir=out)
+    except KeyError:
+        console.print(
+            f"[red]unknown fixture[/] {fixture!r} — expected easy, realistic or adversarial"
+        )
+        raise typer.Exit(code=2) from None
+
     console.print(
-        f"[yellow]not implemented[/] — generate {records} records, {fixture}, seed {seed}"
+        f"[green]generated[/] {records} settlements — fixture [bold]{fixture}[/], seed {seed}"
     )
-    raise typer.Exit(code=1)
+    for role, path in sorted(paths.items()):
+        console.print(f"  {role:<16} {path}")
 
 
 @app.command()

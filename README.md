@@ -81,7 +81,7 @@ result.
 
 ```bash
 make setup     # install
-make test      # 121 tests, no API key needed
+make test      # 151 tests, no API key needed
 make demo      # generate → reconcile → report
 make eval      # full ablation, writes results/metrics.md
 ```
@@ -102,9 +102,19 @@ These are load-bearing, not style preferences. They are enforced by tests where 
 
 ## Status
 
-Scaffold. Fee model, money arithmetic, LLM output contract, exception codes, and the SQL
-schema are implemented and tested. The cascade tiers, generator, and eval harness are
-stubbed with implementation notes. See `PROJECT_SPEC.md` §12 for the day-by-day plan.
+In progress. 151 tests pass.
+
+**Implemented and tested:** money arithmetic (integer paise), the MDR/GST/TDS fee model and
+settlement-date math, the Tier 3 LLM output contract, exception reason codes, the SQL schema,
+and the synthetic data generator — all twelve chaos injectors from `PROJECT_SPEC.md` §5.5,
+seeded and byte-identical reproducible, with ground truth. `ledgerloop generate` works.
+
+**Stubbed, with implementation notes:** the five cascade tiers, ingest and fingerprinting,
+the store, the exception queue, rule promotion, the API, and the eval harness. The remaining
+CLI commands exit non-zero rather than pretending to run.
+
+No metric has been measured yet. See `PROJECT_SPEC.md` §12 for the day-by-day plan and
+[`DECISIONS.md`](DECISIONS.md) for why the architecture is shaped this way.
 
 ## Lineage
 

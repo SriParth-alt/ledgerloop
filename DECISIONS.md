@@ -180,3 +180,161 @@ tuning happens only on `realistic`, and ground truth is structurally walled off,
 only package permitted to read it, enforced by `tests/test_no_truth_leak.py`. That test is the
 reason the numbers can be trusted, because a leak would not look like a failure — it would look
 like excellent results.
+
+---
+
+## ADR-006 — Per-concern RNG streams, not one sequential generator
+
+**Date:** 2026-08-24
+**Status:** Accepted
+
+**Context:** §5.6 requires `--seed 42` to reproduce a byte-identical dataset, and §5.5 requires each
+chaos injector to sit behind an independently toggleable flag "so the ablation table can attribute
+failures to specific real-world phenomena". Those two requirements pull in different directions once
+you write the obvious implementation: a single `random.Random(seed)` drawn sequentially through
+generation. That is reproducible, but it is not independent.
+
+**Decision:** Every random decision draws from a stream derived from `(seed, concern, row_index)`
+through `blake2b`, so each injector consumes its own entropy and disturbs no other.
+
+**Alternatives considered:**
+- **One sequential `Random(seed)`.** Lost: enabling any injector consumes a different number of
+  draws, which shifts every subsequent value. `easy` and `realistic` at the same seed would then
+  share no rows at all, and a difference between two ablation runs could not be attributed to the
+  flag that was toggled — it would just be two unrelated datasets.
+- **Deriving stream keys with Python's built-in `hash()`.** Lost: `hash()` is salted per process via
+  `PYTHONHASHSEED`, so byte-identical reproduction would hold within one run and fail between runs,
+  intermittently and invisibly. `blake2b` is stable across processes and platforms.
+
+**Consequences:** This buys genuine flag independence: the three fixtures at one seed describe *the
+same underlying world* at three corruption levels, which is the only thing that makes the §9.2
+ablation table a comparison rather than a collection of unrelated numbers. It is also what lets
+`test_enabling_narration_noise_changes_only_narrations` assert that every amount and date is
+byte-for-byte unchanged. The cost is real: it is more machinery than one generator, and every new
+injector must remember to claim its own concern name. A copy-pasted concern string would silently
+couple two injectors, and the tests only cover the pairs they explicitly compare — nothing detects
+the general case. That is a known sharp edge, not an oversight.
+
+---
+
+## ADR-007 — Ground truth is built first, then rendered, then corrupted
+
+**Date:** 2026-08-24
+**Status:** Accepted
+
+**Context:** The generator has to emit `truth_links.csv` alongside three source files. There are two
+ways to get there: generate the files and then work out the links by inspecting them, or build the
+world with the links known by construction and render the files as lossy views of it. Since every
+precision, recall and false-match figure in the submission is computed against this file, the way it
+is produced determines whether those figures mean anything.
+
+**Decision:** We build the world first, freeze ground truth, and only then render and degrade the
+views — splitting injectors into structural ones that run before the freeze and cosmetic ones that
+run after and cannot touch a link.
+
+**Alternatives considered:**
+- **Derive truth by inspecting the generated files.** Lost: a generator bug and a matcher bug could
+  cancel each other out, and the failure would be invisible — the metrics would simply look
+  excellent, which is the one failure mode this project cannot afford.
+- **One undifferentiated list of injectors.** Lost: without the structural/cosmetic split there is no
+  principled statement of which injectors are *allowed* to change truth, so the guarantee could not
+  be tested.
+
+**Consequences:** This makes `test_cosmetic_injectors_never_alter_ground_truth` possible: adding
+narration noise, dropping UTRs, varying names and shuffling file order must leave the link set
+identical. It also means corruption can be made arbitrarily aggressive without any risk of
+invalidating the answer key. The cost is that the split is maintained by hand — a new injector placed
+in the wrong phase could corrupt truth silently, and the test only covers the four cosmetic flags it
+names. `PAISE_DRIFT` additionally has to be suppressed on decoy credits, because ADR-003 requires the
+competing explanations to be arithmetically *perfect*; drift would leave both merely approximate and
+turn a genuine ambiguity back into a tiebreak.
+
+---
+
+## ADR-008 — The generator writes CSV with the standard library, not pandas
+
+**Date:** 2026-08-24
+**Status:** Accepted
+
+**Context:** §10 selects pandas as the data layer, and that remains right for reading and analysis.
+Writing is a different problem: §5.6 requires byte-identical output from a seed, and the project is
+developed on Windows while CI runs on Linux. `pandas.to_csv` carries quoting and numeric-formatting
+behaviour that varies across versions, and the default line terminator differs by platform.
+
+**Decision:** The generator writes through `csv.writer` with an explicit `lineterminator="\n"` and
+`newline=""`, pinning the bytes; pandas stays the choice everywhere data is read or analysed.
+
+**Alternatives considered:**
+- **`pandas.to_csv`.** Lost: it adds version-dependent formatting surface to the one output that must
+  be reproducible, for no benefit at a few hundred rows we already hold in memory.
+- **Accepting the platform default line terminator.** Lost: reproducibility would hold on the
+  development machine and fail in CI, which is the most expensive place to discover it.
+
+**Consequences:** Output is byte-identical across platforms, verified by hashing two runs of the same
+seed. A reviewer comparing this against §10 will notice the deviation, which is why it is recorded
+here rather than left as an unexplained inconsistency. The cost is a second CSV idiom in the
+codebase: anyone adding a writer must remember both parameters, and forgetting either breaks
+reproducibility on Windows only — the failure would not reproduce in CI, which is the worst possible
+shape for a bug. `test_written_files_use_lf_line_endings` guards the line terminator specifically.
+
+---
+
+## ADR-009 — Chaos intensity governs observability, never economics
+
+**Date:** 2026-08-25
+**Status:** Accepted
+
+**Context:** `ChaosProfile.intensity` was applied uniformly to every injector, including
+`PARTIAL_REFUND`. At the `adversarial` setting of 0.60 that produced a batch in which **40% of
+settlements never reached the bank at all** — arithmetically consistent, since refunded and disputed
+settlements correctly carry no truth link, but not a bank statement any finance reviewer would
+recognise. Real refund and dispute rates sit in low single digits. §14.2 warns that a generator too
+clean makes the results meaningless; this was the same failure mirrored, and it discredits the
+fixture rather than the matcher.
+
+**Decision:** Refund and dispute frequency is fixed by `REFUND_EVENT_RATE` (5%) independently of
+`intensity`, which now governs only how badly the *observability* of a batch is degraded.
+
+**Alternatives considered:**
+- **Keep one intensity knob for everything.** Lost: it conflates two unrelated dimensions. How often
+  money fails to arrive is a property of the merchant's business; how mangled the narration is, is a
+  property of the bank's file format. Tying them together makes the adversarial fixture
+  simultaneously too noisy and economically absurd.
+- **Lower `adversarial` intensity overall.** Lost: that would weaken every observability injector at
+  once, which is precisely the difficulty the held-out fixture exists to provide.
+
+**Consequences:** Never-settled settlements drop from 40% to 2.8%, and the `adversarial` fixture
+keeps every injector at full strength while still looking like a real statement. The cost is a second
+knob: intensity no longer explains the whole corruption story, so anyone tuning a fixture has to know
+that refund frequency lives in a module constant instead. There is also a defensible-but-arbitrary
+number in the code now — 5% is plausible, not sourced from a real merchant, and the write-up should
+say so rather than imply it was measured.
+
+---
+
+## ADR-010 — `link_type` records cardinality only; events go in `chaos_tags`
+
+**Date:** 2026-08-25
+**Status:** Accepted
+
+**Context:** The ground-truth vocabulary originally mixed two independent questions. `REFUND_OFFSET`
+described what *happened* to a settlement, while `ONE_TO_ONE` and `BATCH_MEMBER` described the
+*shape* of the link. Because a row can only carry one value, a refunded settlement inside a batch was
+labelled `refund_offset` and its batch membership was lost — 44 rows in one 250-record fixture.
+
+**Decision:** `link_type` is `ONE_TO_ONE`, `BATCH_MEMBER` or `ORPHAN_CREDIT` and answers only "how
+many settlements explain this credit"; refunds and re-posts are recorded in `TruthLink.chaos_tags`.
+
+**Alternatives considered:**
+- **Keep the mixed vocabulary.** Lost: on day 8 the ablation would under-count batched links and the
+  shortfall would look like the batching injector firing less often — a measurement error that
+  reads as a data property, which is the hardest kind to notice.
+- **Add a compound type such as `batch_member_refunded`.** Lost: the vocabulary would multiply with
+  every new event, and `eval/` would need to parse the name apart to recover cardinality anyway.
+
+**Consequences:** Cardinality and event are now independently queryable, which is what the
+per-phenomenon attribution in §9.2 needs. Both `REFUND_OFFSET` and `DUPLICATE_POST` were removed from
+the enum: with events living in tags, neither had a remaining use, and a reserved-but-unused member
+invites someone to reach for it later and reintroduce the conflation. The cost is that the vocabulary
+was already declared fixed in ADR-005's spirit — changing it now is cheap only because no fixture has
+shipped yet. After day 8 this would have meant regenerating every published number.
