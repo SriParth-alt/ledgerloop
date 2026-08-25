@@ -81,7 +81,7 @@ result.
 
 ```bash
 make setup     # install
-make test      # 151 tests, no API key needed
+make test      # 153 tests, no API key needed
 make demo      # generate → reconcile → report
 make eval      # full ablation, writes results/metrics.md
 ```
@@ -102,7 +102,7 @@ These are load-bearing, not style preferences. They are enforced by tests where 
 
 ## Status
 
-In progress. 151 tests pass.
+In progress. 153 tests pass.
 
 **Implemented and tested:** money arithmetic (integer paise), the MDR/GST/TDS fee model and
 settlement-date math, the Tier 3 LLM output contract, exception reason codes, the SQL schema,

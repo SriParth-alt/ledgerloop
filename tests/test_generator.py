@@ -227,6 +227,48 @@ def test_link_type_records_cardinality_and_never_the_event() -> None:
     )
 
 
+def test_bank_transaction_ids_are_unique() -> None:
+    """`schema.sql` declares PRIMARY KEY (run_id, bank_txn_id).
+
+    A repeated id is not a duplicate for the matcher to detect — it is an
+    `IntegrityError` that kills the ingest before any detection can happen.
+    """
+    batch = _batch(ADVERSARIAL)
+    identifiers = [row.bank_txn_id for row in batch.bank_txns]
+
+    assert len(identifiers) == len(set(identifiers))
+
+
+def test_duplicate_post_reposts_the_same_money_under_a_new_identity() -> None:
+    """§5.5 DUPLICATE_POST, read together with `ingest/loader.py`'s TODO.
+
+    A re-post must be a *different row* carrying the *same money*. Byte-identical
+    would be absorbed by the row fingerprint silently — precisely the double-counting
+    the loader is required to surface as DUPLICATE_SUSPECTED.
+    """
+    batch = _batch(ADVERSARIAL)
+    by_id = {row.bank_txn_id: row for row in batch.bank_txns}
+
+    reposts = [
+        link
+        for link in batch.links
+        if ChaosFlag.DUPLICATE_POST in link.chaos_tags and link.settlement_id is None
+    ]
+    assert len(reposts) == 1, "expected exactly one re-posted credit"
+    repost = by_id[reposts[0].bank_txn_id]
+
+    twins = [
+        row
+        for row in batch.bank_txns
+        if row.bank_txn_id != repost.bank_txn_id
+        and (row.credit_paise, row.value_date, row.narration)
+        == (repost.credit_paise, repost.value_date, repost.narration)
+    ]
+
+    assert len(twins) == 1, "the re-post does not mirror exactly one original credit"
+    assert twins[0].bank_txn_id != repost.bank_txn_id
+
+
 def test_batched_payout_covers_several_settlements() -> None:
     """§5.5 BATCH. This is the cardinality problem Tier 2 exists for."""
     batch = _batch(REALISTIC)

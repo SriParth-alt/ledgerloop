@@ -338,3 +338,43 @@ the enum: with events living in tags, neither had a remaining use, and a reserve
 invites someone to reach for it later and reintroduce the conflation. The cost is that the vocabulary
 was already declared fixed in ADR-005's spirit — changing it now is cheap only because no fixture has
 shipped yet. After day 8 this would have meant regenerating every published number.
+
+---
+
+## ADR-011 — A re-posted credit carries a new identity, and its zero cardinality is `ORPHAN_CREDIT`
+
+**Date:** 2026-08-25
+**Status:** Accepted
+
+**Context:** `DUPLICATE_POST` originally emitted a byte-identical bank row reusing the same
+`bank_txn_id`, on the reasoning that the ingest fingerprint would absorb it. Day 3's target file
+contradicts that directly: `ingest/loader.py` requires the injector to "surface as
+DUPLICATE_SUSPECTED rather than silently double-counting money". A byte-identical row cannot — its
+fingerprint matches, so it is absorbed with no exception raised. It would also collide on
+`PRIMARY KEY (run_id, bank_txn_id)` and fail the insert before any detection could run. Separately,
+ground truth needs a way to say what this credit is, since every credit must appear in
+`truth_links.csv`.
+
+**Decision:** The re-post keeps the same amount, value date and narration but takes a new
+`bank_txn_id`; in ground truth it is `link_type = ORPHAN_CREDIT` carrying `chaos_tags =
+(DUPLICATE_POST,)`.
+
+**Alternatives considered:**
+- **Keep the identical row and identical id.** Lost: it is silently absorbed, which is the exact
+  behaviour the loader TODO forbids, and it breaks the primary key.
+- **Reintroduce `LinkType.DUPLICATE_POST`.** Lost: that is an *event*, and ADR-010 established that
+  `link_type` answers cardinality only. A re-post genuinely has zero settlements behind it, which is
+  what `ORPHAN_CREDIT` already means; adding an event-shaped member would reintroduce precisely the
+  conflation ADR-010 removed.
+- **Give the re-post no truth link at all.** Lost: every bank credit must be accounted for in ground
+  truth, or day 8 scores it as a false negative no matcher could ever have resolved.
+
+**Consequences:** The generator now produces an input the idempotency layer can actually be tested
+against — same money, different identity — rather than one the fingerprint trivially eats. Whole-file
+re-ingestion still no-ops, because every fingerprint matches. The cost is a genuine readability wart:
+a reviewer opening `truth_links.csv` sees a row labelled `orphan_credit` that is really a duplicate,
+and has to read the tag beside it to understand. That is the price of keeping cardinality and event
+orthogonal, and it is cheaper than a vocabulary that multiplies with every new phenomenon. `eval/`
+must therefore branch on the tag, not the link type, when deciding whether a credit should end as
+`ORPHAN_CREDIT` or `DUPLICATE_SUSPECTED` — those are different expected outcomes for rows that look
+identical in the `link_type` column.

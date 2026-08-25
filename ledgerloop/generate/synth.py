@@ -528,19 +528,29 @@ def _add_duplicate_post(
     seed: int,
     profile: ChaosProfile,
 ) -> tuple[list[tuple[str, date, int, str, list[_Working]]], list[TruthLink]]:
-    """The bank re-posts an identical credit.
+    """The bank re-posts a credit it has already sent.
 
-    The duplicate carries the *same* transaction id and identical content, so the
-    ingest fingerprint absorbs it and re-running the file is a no-op. Ground truth
-    records it as a tag rather than a second link: the money is already accounted
-    for, and a second link would double-count in recall on day 8.
+    The re-post carries the same money — identical amount, value date and narration —
+    under a **new transaction id**. That is deliberate and it is what `ingest/loader.py`
+    requires: a byte-identical row would be absorbed by the row fingerprint silently,
+    which is exactly the double-counting the loader must surface as
+    ``DUPLICATE_SUSPECTED``. It would also collide on ``PRIMARY KEY (run_id,
+    bank_txn_id)`` and fail the insert outright.
+
+    Ground truth gives the re-post a link of its own with no settlement behind it.
+    Its cardinality really is zero, which is what ``ORPHAN_CREDIT`` means; the reason
+    it is zero — a re-post rather than an out-of-band transfer — is an event, and
+    ADR-010 puts events in ``chaos_tags``. ``eval/`` tells the two apart by the tag,
+    because they carry different expected outcomes: ``ORPHAN_CREDIT`` for one,
+    ``DUPLICATE_SUSPECTED`` for the other.
     """
     if not profile.enabled(ChaosFlag.DUPLICATE_POST) or not pending:
         return pending, links
 
     rng = _stream(seed, "duplicate", 0)
-    victim = pending[rng.randrange(len(pending))]
-    pending.append(victim)
+    original_id, value_date, credit, narration, _members = pending[rng.randrange(len(pending))]
+    repost_id = "BNKDUP001"
+    pending.append((repost_id, value_date, credit, narration, []))
 
     tagged = [
         TruthLink(
@@ -550,10 +560,19 @@ def _add_duplicate_post(
             link_type=link.link_type,
             chaos_tags=tuple(sorted({*link.chaos_tags, ChaosFlag.DUPLICATE_POST})),
         )
-        if link.bank_txn_id == victim[0]
+        if link.bank_txn_id == original_id
         else link
         for link in links
     ]
+    tagged.append(
+        TruthLink(
+            bank_txn_id=repost_id,
+            settlement_id=None,
+            invoice_id=None,
+            link_type=LinkType.ORPHAN_CREDIT,
+            chaos_tags=(ChaosFlag.DUPLICATE_POST,),
+        )
+    )
     return pending, tagged
 
 
