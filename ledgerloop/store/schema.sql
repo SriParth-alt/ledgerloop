@@ -102,6 +102,13 @@ CREATE TABLE IF NOT EXISTS match_records (
     superseded_by       TEXT REFERENCES match_records(match_id)
 );
 
+-- Idempotency lookups hit row_sha256 once per incoming row. Without these the check
+-- is a full table scan per row, which is quadratic in batch size — survivable at 250
+-- rows, not at the file sizes a reviewer might try.
+CREATE INDEX IF NOT EXISTS idx_invoices_sha ON invoices(run_id, row_sha256);
+CREATE INDEX IF NOT EXISTS idx_settlements_sha ON settlements(run_id, row_sha256);
+CREATE INDEX IF NOT EXISTS idx_bank_txns_sha ON bank_txns(run_id, row_sha256);
+
 CREATE INDEX IF NOT EXISTS idx_match_run_tier ON match_records(run_id, tier);
 CREATE INDEX IF NOT EXISTS idx_match_bank ON match_records(run_id, bank_txn_id);
 
