@@ -469,3 +469,101 @@ mutated, and `degraded` — which says a run's numbers are not comparable to a f
 exactly once, at the end. The cost is that "append-only" is now a rule with an exception, and anyone
 reading `CLAUDE.md` will meet the unqualified version first. That is why this ADR exists; the rule
 should probably be reworded to say *decisions* are append-only.
+
+---
+
+## ADR-015 — Tier 0's amount-and-date rule ships with a known false-match hole
+
+**Date:** 2026-08-25
+**Status:** Accepted
+
+**Context:** §6 gives Tier 0 two rules: exact normalised UTR, and an exactly-unique
+`(net_amount_paise, value_date)` pair. The uniqueness guard closes the ambiguous cases — a key
+claimed by two rows on either side falls through. It does **not** close a subtler one. If a batched
+credit's total coincidentally equals some unrelated settlement's net on the same date, and each key
+happens to be unique on its own side, Tier 0 posts a wrong match at confidence 1.0 and nothing later
+revisits it. The tier cannot detect this, because it has no way to know a credit was batched — that
+is precisely what Tier 2 exists to work out.
+
+**Decision:** We implement §6 as written, including the amount-and-date rule, and record the hole
+here rather than quietly departing from the spec.
+
+**Alternatives considered:**
+- **Defer the amount-and-date rule to Tier 1.** Lost *for now*: Tier 1 recomputes the expected net
+  from the fee model, so a coincidental total would have to survive a second, independent check —
+  genuinely safer. But it changes what §6 says Tier 0 is, and the ablation table has a "T0 only" row
+  whose meaning would shift. Worth revisiting on day 8 with a measurement in hand instead of an
+  argument.
+- **Drop the rule entirely and match only on references.** Lost: NO_UTR chaos removes the reference
+  from a real share of rows, and those records would fall to Tier 3 — pushing model usage up for
+  records arithmetic could have settled, which is the opposite of ADR-002.
+
+**Consequences:** This is a knowing acceptance of a correctness risk, and it sits uneasily beside the
+rule that a false match is worse than an exception. Two things make it tolerable rather than
+reckless. The reference rule runs first and its matches are removed, so the weaker rule draws from a
+smaller pool — on the adversarial fixture at 250 records, 51 of 65 Tier 0 matches came from the
+reference rule and only 14 from amount-and-date. And the eval harness measures exactly this: if day 8
+reports a non-zero false-match rate, `rule_id` attributes it to `T0-AMOUNT-DATE-UNIQUE` immediately,
+and the first alternative above becomes the fix. Shipping the rule and measuring it is more honest
+than dropping it on suspicion — but the measurement is not optional, and this ADR is the reminder.
+
+---
+
+## ADR-016 — An ablation arm is a configuration; a missing model is a degradation
+
+**Date:** 2026-08-25
+**Status:** Accepted
+
+**Context:** A run can end up executing fewer than four tiers for two entirely different reasons.
+`--tiers 0,1,2` is the ablation harness deliberately running an arm of §9.2's table. `--no-llm`, or a
+model that is down, is a failure the batch survived. The `runs.degraded` column is a single flag, and
+which of these it means determines whether a run's numbers can be compared to another's.
+
+**Decision:** `degraded` is set only when tier 3 was requested and could not run. Running fewer tiers
+on purpose leaves it clear.
+
+**Alternatives considered:**
+- **Mark any run with fewer than four tiers as degraded.** Lost: every row of the ablation table
+  except the last would be flagged, and the flag would carry no information at all.
+- **Never set the flag and infer degradation from `tiers_enabled`.** Lost: `--tiers 0,1,2,3 --no-llm`
+  and `--tiers 0,1,2` would then be indistinguishable in the store, and the first one's auto-match
+  rate would silently be quoted as a full-cascade result.
+
+**Consequences:** §9.2's arms stay comparable, and §8's promise — the batch completes without Tier 3,
+auto-match rate falls, correctness does not — becomes checkable in the data rather than asserted in
+prose. `finish_run` now also rewrites `tiers_enabled` with what actually executed, because the value
+set at `start_run` is an intention and a run whose label disagrees with its behaviour would poison
+every comparison drawn from it. That is a second in-place write on the `runs` row, under the same
+reasoning as ADR-014.
+
+---
+
+## ADR-017 — Tier implementations are pure functions over rows, not over a connection
+
+**Date:** 2026-08-25
+**Status:** Accepted
+
+**Context:** Each tier needs unmatched bank rows and settlements, and produces proposed matches. The
+obvious shape is for a tier to take a database connection and do its own reading and writing. The
+project also makes a strong public claim — tiers 0 to 2 never call a model — that a panel is entitled
+to want evidence for beyond an assurance.
+
+**Decision:** `match_tier0(bank_txns, settlements) -> list[ProposedMatch]` takes rows and returns
+proposals. The orchestrator does every read and every write.
+
+**Alternatives considered:**
+- **Tiers take the connection.** Lost: constructing a difficult case then means staging it through a
+  CSV and an ingest, so the awkward cases — a reference shared by two settlements, a decoy pair —
+  are expensive to write and get skipped. It also puts I/O and matching logic in one module, where a
+  future network call would not look out of place.
+- **A repository object injected into each tier.** Lost: the indirection buys nothing at this size and
+  makes the import-block argument below weaker.
+
+**Consequences:** Hard rule 1 becomes auditable by inspection: `tier0_exact.py` imports `re`,
+`collections`, `datetime`, and two data types. A module with no client and no connection cannot call
+a model, and that is demonstrable in a panel by scrolling to the imports — considerably stronger than
+a sentence in a README. The tier is also trivially testable, which is why most of `test_tier0.py`
+covers cases where the tier must *decline*. The cost is that the orchestrator holds all the state:
+it tracks which settlements have been claimed across tiers, and a bug there could let one settlement
+be spent twice with no tier being at fault. That risk is concentrated in one place and covered by
+`test_no_settlement_is_matched_by_two_credits`, but it is real and it will grow as tiers 1-3 land.

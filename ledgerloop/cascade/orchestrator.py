@@ -1,12 +1,174 @@
 """Runs the tiers in order and records the outcome of every record.
 
-TODO(day-4, extended each day): execute T0 -> T1 -> T2 -> T3 -> T4, emitting a
-per-tier count as it goes (this streaming output is the demo).
+Executes T0 -> T1 -> T2 -> T3 -> T4, emitting a per-tier count as it goes (this
+streaming output is the demo).
 
-Support `--tiers 0,1,2` so the ablation harness can run partial configurations
-against the same fixture. Support `--no-llm` producing a degraded=true run that
-still completes: if the model is unavailable the batch finishes without Tier 3,
-auto-match rate falls, correctness does not.
+Supports ``--tiers 0,1,2`` so the ablation harness can run partial configurations
+against the same fixture, and ``--no-llm`` producing a ``degraded=true`` run that still
+completes: if the model is unavailable the batch finishes without Tier 3, auto-match
+rate falls, correctness does not.
+
+Two things are worth being precise about.
+
+**Ablation is not degradation.** ``--tiers 0,1,2`` is a deliberate configuration and its
+numbers are directly comparable to other arms of the same table. ``--no-llm`` while tier
+3 was asked for is a failure the run survived, and its numbers are *not* comparable to a
+full run's. Marking both degraded would make section 9.2 unreadable; marking neither
+would let an incomplete run be quoted as a complete one.
+
+**A tier that is requested but contributes nothing still reports a zero.** A missing row
+reads as "not asked for"; a zero reads as "asked for, found nothing". Only the second is
+honest while tiers 1-3 are unimplemented.
+
+The per-tier count goes to a callback rather than to stdout. A library that prints is a
+library that cannot be tested, and the CLI is the right place to decide how a run looks.
 """
 
 from __future__ import annotations
+
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+
+from sqlalchemy import Connection
+
+from ledgerloop.audit.provenance import ProposedMatch, record_match
+from ledgerloop.cascade.tier0_exact import match_tier0
+from ledgerloop.ingest.schemas import BankRow, SettlementRow
+from ledgerloop.store.db import (
+    finish_run,
+    load_bank_txns,
+    load_settlements,
+    matched_bank_txn_ids,
+    matched_settlement_ids,
+)
+
+VALID_TIERS = frozenset({0, 1, 2, 3})
+
+#: Tiers with an implementation today. Everything else reports zero rather than
+#: silently disappearing from the report.
+IMPLEMENTED_TIERS = frozenset({0})
+
+
+@dataclass(frozen=True)
+class TierOutcome:
+    """What one tier contributed."""
+
+    tier: int
+    matched_bank_txns: int
+    matched_settlements: int
+
+
+@dataclass(frozen=True)
+class ReconcileReport:
+    """The result of a run, including what it failed to explain.
+
+    ``unmatched_*`` is not decoration: it is the number the next tier inherits and the
+    eventual size of the exception queue. Reporting only successes is how a 95% match
+    rate ends up quoted against a quietly shrunken denominator.
+    """
+
+    run_id: str
+    degraded: bool
+    tiers: tuple[TierOutcome, ...]
+    unmatched_bank_txns: int
+    unmatched_settlements: int
+
+
+def parse_tiers(spec: str) -> frozenset[int]:
+    """Parse an ablation spec such as ``"0,1,2"``.
+
+    Rejects anything unparseable rather than silently running a different configuration
+    from the one the resulting metrics will be labelled with.
+    """
+    tiers: set[int] = set()
+    for part in spec.split(","):
+        token = part.strip()
+        if not token:
+            continue
+        try:
+            tier = int(token)
+        except ValueError:
+            raise ValueError(f"not a tier number: {token!r}") from None
+        if tier not in VALID_TIERS:
+            raise ValueError(f"tier out of range: {tier} (expected 0-3)")
+        tiers.add(tier)
+
+    if not tiers:
+        raise ValueError(f"no tiers selected in {spec!r}")
+    return frozenset(tiers)
+
+
+def reconcile(
+    conn: Connection,
+    run_id: str,
+    *,
+    tiers: frozenset[int],
+    no_llm: bool = False,
+    on_tier: Callable[[TierOutcome], None] | None = None,
+) -> ReconcileReport:
+    """Execute the requested tiers in order, posting what each one resolves."""
+    bank_txns = load_bank_txns(conn, run_id)
+    settlements = load_settlements(conn, run_id)
+
+    # Seeded from what is already posted, so re-running a run cannot double-post.
+    claimed_bank = matched_bank_txn_ids(conn, run_id)
+    claimed_settlements = matched_settlement_ids(conn, run_id)
+
+    outcomes: list[TierOutcome] = []
+    for tier in sorted(tiers):
+        residual_bank = [row for row in bank_txns if row.bank_txn_id not in claimed_bank]
+        residual_settlements = [
+            row for row in settlements if row.settlement_id not in claimed_settlements
+        ]
+
+        proposals = _run_tier(tier, residual_bank, residual_settlements, no_llm=no_llm)
+        for match in proposals:
+            record_match(conn, run_id, match)
+            claimed_bank.add(match.bank_txn_id)
+            claimed_settlements.update(match.settlement_ids)
+
+        outcome = TierOutcome(
+            tier=tier,
+            matched_bank_txns=len(proposals),
+            matched_settlements=sum(len(match.settlement_ids) for match in proposals),
+        )
+        outcomes.append(outcome)
+        if on_tier is not None:
+            on_tier(outcome)
+
+    degraded = no_llm and 3 in tiers
+    finish_run(
+        conn,
+        run_id,
+        degraded=degraded,
+        tiers_enabled=",".join(str(tier) for tier in sorted(tiers)),
+    )
+
+    return ReconcileReport(
+        run_id=run_id,
+        degraded=degraded,
+        tiers=tuple(outcomes),
+        unmatched_bank_txns=len(bank_txns) - len(claimed_bank),
+        unmatched_settlements=len(settlements) - len(claimed_settlements),
+    )
+
+
+def _run_tier(
+    tier: int,
+    bank_txns: Sequence[BankRow],
+    settlements: Sequence[SettlementRow],
+    *,
+    no_llm: bool,
+) -> list[ProposedMatch]:
+    """Dispatch to a tier implementation, or return nothing if it does not exist yet.
+
+    Tiers 1-3 are stubs. Returning an empty list here — rather than skipping the tier —
+    is what lets the report distinguish "found nothing" from "never ran".
+    """
+    if tier == 0:
+        return match_tier0(bank_txns, settlements)
+    if tier == 3 and no_llm:
+        return []
+    if tier not in IMPLEMENTED_TIERS:
+        return []
+    return []

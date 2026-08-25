@@ -7,12 +7,24 @@ streaming per-tier counts, then a metrics table.
 
 from __future__ import annotations
 
+import json
+from dataclasses import asdict
 from pathlib import Path
 
 import typer
 from rich.console import Console
 
-from ledgerloop.generate.synth import generate_fixture
+from ledgerloop.cascade.orchestrator import TierOutcome, parse_tiers
+from ledgerloop.cascade.orchestrator import reconcile as run_cascade
+from ledgerloop.config import DEFAULT_MATCH_CONFIG
+from ledgerloop.generate.synth import (
+    BANK_FILE,
+    INVOICES_FILE,
+    SETTLEMENTS_FILE,
+    generate_fixture,
+)
+from ledgerloop.ingest.loader import load_batch
+from ledgerloop.store.db import DEFAULT_DB_PATH, connect, initialise, run_exists, start_run
 
 app = typer.Typer(
     name="ledgerloop",
@@ -58,16 +70,60 @@ def reconcile(
     fixture: str = typer.Option("realistic"),
     tiers: str = typer.Option("0,1,2,3", help="Ablation: e.g. '0,1' runs deterministic only."),
     no_llm: bool = typer.Option(False, help="Force a degraded run without Tier 3."),
+    fixtures_dir: Path = typer.Option(Path("fixtures"), help="Where generate wrote its files."),
+    db: Path = typer.Option(DEFAULT_DB_PATH, help="SQLite file to ingest into."),
 ) -> None:
     """Run the cascade over an ingested batch.
 
-    TODO(day-4 onward): wire to ledgerloop.cascade.orchestrator.
-
-    Print a live per-tier count as it goes — that streaming output is the moment in
+    Prints a live per-tier count as it goes — that streaming output is the moment in
     the demo where the architecture becomes visible.
     """
-    console.print(f"[yellow]not implemented[/] — reconcile run={run_id} tiers={tiers}")
-    raise typer.Exit(code=1)
+    try:
+        selected = parse_tiers(tiers)
+    except ValueError as error:
+        console.print(f"[red]bad --tiers[/] {error}")
+        raise typer.Exit(code=2) from None
+
+    source = fixtures_dir / fixture
+    with connect(db) as conn:
+        initialise(conn)
+        if run_exists(conn, run_id):
+            console.print(f"[red]run already exists[/] {run_id!r} — choose another --run-id")
+            raise typer.Exit(code=2)
+
+        start_run(
+            conn,
+            run_id=run_id,
+            fixture=fixture,
+            tiers_enabled=",".join(str(tier) for tier in sorted(selected)),
+            config_json=json.dumps(asdict(DEFAULT_MATCH_CONFIG)),
+        )
+
+        reports = load_batch(
+            conn,
+            run_id,
+            invoices=source / INVOICES_FILE,
+            settlements=source / SETTLEMENTS_FILE,
+            bank_statement=source / BANK_FILE,
+        )
+        loaded = sum(report.inserted for report in reports.values())
+        quarantined = sum(report.quarantined for report in reports.values())
+        console.print(f"[green]ingested[/] {loaded} rows, {quarantined} quarantined")
+
+        def show(outcome: TierOutcome) -> None:
+            console.print(
+                f"  tier {outcome.tier}  "
+                f"{outcome.matched_bank_txns:>5} credits  "
+                f"{outcome.matched_settlements:>5} settlements"
+            )
+
+        report = run_cascade(conn, run_id, tiers=selected, no_llm=no_llm, on_tier=show)
+
+    console.print(
+        f"[bold]unmatched[/] {report.unmatched_bank_txns} credits, "
+        f"{report.unmatched_settlements} settlements"
+        + ("  [yellow](degraded run)[/]" if report.degraded else "")
+    )
 
 
 @app.command()

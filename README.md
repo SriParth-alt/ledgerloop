@@ -81,7 +81,7 @@ result.
 
 ```bash
 make setup     # install
-make test      # 177 tests, no API key needed
+make test      # 211 tests, no API key needed
 make demo      # generate → reconcile → report
 make eval      # full ablation, writes results/metrics.md
 ```
@@ -102,19 +102,26 @@ These are load-bearing, not style preferences. They are enforced by tests where 
 
 ## Status
 
-In progress. 177 tests pass.
+In progress. 211 tests pass.
 
 **Implemented and tested:** money arithmetic (integer paise), the MDR/GST/TDS fee model and
 settlement-date math, the Tier 3 LLM output contract, exception reason codes, and the SQL
 schema. The synthetic data generator — all twelve chaos injectors from `PROJECT_SPEC.md`
-§5.5, seeded and byte-identical reproducible, with ground truth; `ledgerloop generate` works.
-Ingest — SHA-256 row fingerprinting, idempotent load (re-running a file is a no-op),
-quarantine with source file and line number, and `DUPLICATE_SUSPECTED` detection for a credit
-re-posted under a new transaction id.
+§5.5, seeded and byte-identical reproducible, with ground truth. Ingest — SHA-256 row
+fingerprinting, idempotent load (re-running a file is a no-op), quarantine with source file
+and line number, and `DUPLICATE_SUSPECTED` detection for a credit re-posted under a new
+transaction id. Tier 0 — exact reference matching and unique amount-and-date matching, both
+behind a uniqueness guard. Provenance records carrying tier, rule, evidence, and the SHA-256
+of every source row that fed the decision. `ledgerloop generate` and `ledgerloop reconcile`
+both work, the latter printing a live per-tier count.
 
-**Stubbed, with implementation notes:** the five cascade tiers, the exception queue and
-clustering, rule promotion, the API, and the eval harness. The remaining CLI commands exit
+**Stubbed, with implementation notes:** cascade tiers 1, 2 and 3, the exception queue and
+clustering, rule promotion, the API, and the eval harness. `report` and `evaluate` exit
 non-zero rather than pretending to run.
+
+**Not yet measured:** Tier 0's amount-and-date rule can in principle post a wrong match on a
+batched credit whose total coincidentally equals an unrelated settlement's net. See
+[ADR-015](DECISIONS.md); the eval harness on day 8 is what will tell us whether it does.
 
 No metric has been measured yet. See `PROJECT_SPEC.md` §12 for the day-by-day plan and
 [`DECISIONS.md`](DECISIONS.md) for why the architecture is shaped this way.
