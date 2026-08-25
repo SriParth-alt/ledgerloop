@@ -378,3 +378,94 @@ orthogonal, and it is cheaper than a vocabulary that multiplies with every new p
 must therefore branch on the tag, not the link type, when deciding whether a credit should end as
 `ORPHAN_CREDIT` or `DUPLICATE_SUSPECTED` — those are different expected outcomes for rows that look
 identical in the `link_type` column.
+
+---
+
+## ADR-012 — Duplicate detection keys on amount, date **and** narration
+
+**Date:** 2026-08-25
+**Status:** Accepted
+
+**Context:** A re-posted bank credit has to be distinguished from a credit that merely resembles
+another. The obvious signature is `(credit_paise, value_date)` — same money, same day. That is wrong
+here, and wrong in a way that would have looked fine in a demo: `DECOY_SUBSET` exists specifically to
+put two credits of identical value on the same date, so every decoy pair would be reported as a
+re-post. The adversarial fixture would then arrive at Tier 2 pre-polluted with false
+`DUPLICATE_SUSPECTED` exceptions, and the ambiguity demo would be buried in noise of our own making.
+
+**Decision:** Two credits are "the same money" only when amount, value date **and** narration all
+match; the generator's re-post is character-identical in narration, and a decoy pair is not.
+
+**Alternatives considered:**
+- **`(amount, date)` alone.** Lost: flags every `DECOY_SUBSET` pair, which is a false positive
+  manufactured by our own fixture.
+- **Fuzzy narration comparison.** Lost: a genuine re-post is a byte-for-byte repeat of the same
+  statement line. Fuzziness here buys nothing and imports a threshold to defend.
+- **Detect duplicates later, in the cascade.** Lost: by then the row is already a matching candidate,
+  and the cheapest place to notice that two rows describe one payment is while reading them.
+
+**Consequences:** A re-post that the bank re-words — same money, different narration text — is missed
+at ingest. That is a real gap, and the honest mitigation is that it degrades to an ordinary unmatched
+row and reaches the exception queue anyway, rather than being silently absorbed. The false-positive
+direction is the one that matters more, because a `DUPLICATE_SUSPECTED` on a legitimate credit sends
+a human to investigate money that is fine. `test_decoy_subsets_do_not_trigger_duplicate_suspicion`
+guards that direction specifically, and it asserts the fixture still contains the tricky case so it
+cannot quietly become vacuous.
+
+---
+
+## ADR-013 — Idempotency is scoped to a run, not to the database
+
+**Date:** 2026-08-25
+**Status:** Accepted
+
+**Context:** §8 promises that "re-running the same file is a no-op", which reads as a global
+statement about the database. But every table is keyed `(run_id, ...)`, and §9.2's ablation works by
+executing the same fixture under several configurations and diffing the results. Those two
+requirements are in tension: if ingest refused to load a file it had ever seen, the second
+configuration in an ablation would have no rows to reconcile.
+
+**Decision:** Fingerprint checks are scoped to the current `run_id`. Re-running ingest for the same
+run is a no-op; the same file under a new run loads a fresh, independent copy.
+
+**Alternatives considered:**
+- **Global fingerprint uniqueness.** Lost: the second and later arms of an ablation would silently
+  ingest nothing and report a zero match rate against an empty batch.
+- **Share one copy of the source rows across runs.** Lost: runs stop being independent objects, and a
+  correction applied during one run would retroactively alter the inputs of an earlier one —
+  destroying exactly the provenance the append-only design exists to protect.
+
+**Consequences:** Runs are genuinely comparable, which is what §9.2 needs. Storage is duplicated
+across runs, which at a few hundred rows is irrelevant and would matter at a scale this project does
+not target. The wording in §8 is now narrower than it sounds and should be read as "within a run";
+that is a documentation debt, not a behaviour change. The index added for this is composite —
+`(run_id, row_sha256)` — matching the access pattern exactly.
+
+---
+
+## ADR-014 — Append-only governs matching decisions; a run's own lifecycle is updated in place
+
+**Date:** 2026-08-25
+**Status:** Accepted
+
+**Context:** The append-only rule is stated without qualification: corrections are new rows, never
+UPDATEs, because an UPDATE destroys the audit trail. `finish_run` breaks that letter — it writes
+`finished_at` and `degraded` onto an existing `runs` row. This is worth recording precisely because it
+looks like a violation of a rule the project calls non-negotiable.
+
+**Decision:** The append-only guarantee covers the tables that carry decisions — `match_records`,
+`exceptions`, `quarantine`, and the three source tables. A run row is opened when the run starts and
+closed when it ends, in place.
+
+**Alternatives considered:**
+- **Append a second row to close the run.** Lost: `schema.sql` declares `run_id` as the primary key of
+  `runs` with a nullable `finished_at`, so a second row is not insertable. The schema already encodes
+  the intent that a run is one row with a lifecycle.
+- **A separate `run_events` table.** Lost: it is the same information behind a join, and it would
+  invite the run's *outcome* to drift away from the run itself.
+
+**Consequences:** The audit trail is unaffected: nothing that records a decision about money is ever
+mutated, and `degraded` — which says a run's numbers are not comparable to a full run's — is written
+exactly once, at the end. The cost is that "append-only" is now a rule with an exception, and anyone
+reading `CLAUDE.md` will meet the unqualified version first. That is why this ADR exists; the rule
+should probably be reworded to say *decisions* are append-only.

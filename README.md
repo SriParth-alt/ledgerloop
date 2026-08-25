@@ -81,7 +81,7 @@ result.
 
 ```bash
 make setup     # install
-make test      # 153 tests, no API key needed
+make test      # 177 tests, no API key needed
 make demo      # generate → reconcile → report
 make eval      # full ablation, writes results/metrics.md
 ```
@@ -102,16 +102,19 @@ These are load-bearing, not style preferences. They are enforced by tests where 
 
 ## Status
 
-In progress. 153 tests pass.
+In progress. 177 tests pass.
 
 **Implemented and tested:** money arithmetic (integer paise), the MDR/GST/TDS fee model and
-settlement-date math, the Tier 3 LLM output contract, exception reason codes, the SQL schema,
-and the synthetic data generator — all twelve chaos injectors from `PROJECT_SPEC.md` §5.5,
-seeded and byte-identical reproducible, with ground truth. `ledgerloop generate` works.
+settlement-date math, the Tier 3 LLM output contract, exception reason codes, and the SQL
+schema. The synthetic data generator — all twelve chaos injectors from `PROJECT_SPEC.md`
+§5.5, seeded and byte-identical reproducible, with ground truth; `ledgerloop generate` works.
+Ingest — SHA-256 row fingerprinting, idempotent load (re-running a file is a no-op),
+quarantine with source file and line number, and `DUPLICATE_SUSPECTED` detection for a credit
+re-posted under a new transaction id.
 
-**Stubbed, with implementation notes:** the five cascade tiers, ingest and fingerprinting,
-the store, the exception queue, rule promotion, the API, and the eval harness. The remaining
-CLI commands exit non-zero rather than pretending to run.
+**Stubbed, with implementation notes:** the five cascade tiers, the exception queue and
+clustering, rule promotion, the API, and the eval harness. The remaining CLI commands exit
+non-zero rather than pretending to run.
 
 No metric has been measured yet. See `PROJECT_SPEC.md` §12 for the day-by-day plan and
 [`DECISIONS.md`](DECISIONS.md) for why the architecture is shaped this way.
