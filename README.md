@@ -82,9 +82,18 @@ result.
 ```bash
 make setup     # install
 make test      # 241 tests, no API key needed
-make demo      # generate → reconcile → report
-make eval      # full ablation, writes results/metrics.md
+make lint      # ruff + mypy
 ```
+
+Working today:
+
+```bash
+ledgerloop generate --fixture adversarial --records 250 --seed 42
+ledgerloop reconcile --run-id demo --fixture adversarial --tiers 0,1
+```
+
+`make demo` and `make eval` are not usable yet — `report` and `evaluate` are still stubs and
+exit non-zero. They land on days 8 and 10. See Status below for what is implemented.
 
 ## Design rules
 
