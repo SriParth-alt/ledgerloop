@@ -70,4 +70,27 @@ SQLite app); ORMs beyond SQLAlchemy Core; fine-tuning; multi-currency; auth or u
 
 ## Current status
 
-Spec written, nothing built. Day 1 of 14. See `PROJECT_SPEC.md` §12 for the day-by-day plan.
+**Day 5 of 14 complete.** 241 tests pass; ruff and mypy clean; CI green. Decisions are logged in
+`DECISIONS.md` (18 entries) — read it before revisiting anything that looks odd, because most of it
+is deliberate.
+
+**Live:** money arithmetic, the fee model and settlement-date math, the generator with all twelve
+chaos injectors, ingest (SHA-256 fingerprinting, idempotency, quarantine, `DUPLICATE_SUSPECTED`),
+Tier 0, Tier 1, provenance records, and the orchestrator. `ledgerloop generate` and
+`ledgerloop reconcile` work end to end, with live per-tier counts and `--tiers` ablation.
+
+**Still stubs:** tiers 2 and 3, the exception queue and clustering, rule promotion, the API, and
+`eval/`. `report` and `evaluate` exit non-zero rather than pretending to run.
+
+**Next:** Tier 2 subset-sum (days 6–7), then the eval harness (day 8). Build the harness before
+Tier 3, as §12 says — no tier's contribution is known until it is measured.
+
+**Calendar:** the build started 24 Aug, not §12's 22 Aug, so every date in that table is two days
+optimistic and a straight 14-day run would end 6 Sep — past the 5 Sep close. Two cuts are agreed to
+absorb it: the UI drops to a static HTML report (§12 buffer policy) and Tier 2 ships bounded DP
+without meet-in-the-middle (§14.2). There is no remaining slack.
+
+**Sharp edges worth knowing before you touch the cascade:** ADR-018 records a 25% false-match class
+in Tier 0 that sixteen passing unit tests could not see, because every one of them constructed a 1:1
+case — it only appeared when a tier met a chaos injector on a real fixture. ADR-015 records a
+related risk that is still unmeasured. Expect Tier 2 to have the same blind spot until day 8.
