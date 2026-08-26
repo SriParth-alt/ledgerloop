@@ -81,7 +81,7 @@ result.
 
 ```bash
 make setup     # install
-make test      # 211 tests, no API key needed
+make test      # 241 tests, no API key needed
 make demo      # generate → reconcile → report
 make eval      # full ablation, writes results/metrics.md
 ```
@@ -102,7 +102,7 @@ These are load-bearing, not style preferences. They are enforced by tests where 
 
 ## Status
 
-In progress. 211 tests pass.
+In progress. 241 tests pass.
 
 **Implemented and tested:** money arithmetic (integer paise), the MDR/GST/TDS fee model and
 settlement-date math, the Tier 3 LLM output contract, exception reason codes, and the SQL
@@ -111,11 +111,13 @@ schema. The synthetic data generator — all twelve chaos injectors from `PROJEC
 fingerprinting, idempotent load (re-running a file is a no-op), quarantine with source file
 and line number, and `DUPLICATE_SUSPECTED` detection for a credit re-posted under a new
 transaction id. Tier 0 — exact reference matching and unique amount-and-date matching, both
-behind a uniqueness guard. Provenance records carrying tier, rule, evidence, and the SHA-256
-of every source row that fed the decision. `ledgerloop generate` and `ledgerloop reconcile`
-both work, the latter printing a live per-tier count.
+behind a uniqueness guard, both requiring the amount to corroborate the match. Tier 1 —
+fee-model recomputation, settlement window, fuzzy reference and counterparty name, with
+amount and date as gates rather than weights. Provenance records carrying tier, rule,
+evidence, and the SHA-256 of every source row that fed the decision. `ledgerloop generate`
+and `ledgerloop reconcile` both work, the latter printing a live per-tier count.
 
-**Stubbed, with implementation notes:** cascade tiers 1, 2 and 3, the exception queue and
+**Stubbed, with implementation notes:** cascade tiers 2 and 3, the exception queue and
 clustering, rule promotion, the API, and the eval harness. `report` and `evaluate` exit
 non-zero rather than pretending to run.
 

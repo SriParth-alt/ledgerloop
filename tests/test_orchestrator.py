@@ -20,6 +20,7 @@ from sqlalchemy import text
 
 from ledgerloop.cascade.orchestrator import parse_tiers, reconcile
 from ledgerloop.cascade.tier0_exact import RULE_AMOUNT_DATE_UNIQUE, RULE_UTR_EXACT
+from ledgerloop.cascade.tier1_tolerant import RULE_TOLERANT
 from ledgerloop.generate.synth import generate_fixture
 from ledgerloop.ingest.loader import load_batch
 from ledgerloop.store.db import connect, initialise, start_run
@@ -163,7 +164,6 @@ def test_unimplemented_tiers_report_zero_rather_than_being_skipped(ingested) -> 
     report = reconcile(conn, RUN_ID, tiers=frozenset({0, 1, 2}))
 
     assert [outcome.tier for outcome in report.tiers] == [0, 1, 2]
-    assert report.tiers[1].matched_bank_txns == 0
     assert report.tiers[2].matched_bank_txns == 0
 
 
@@ -189,3 +189,45 @@ def test_tier_progress_is_reported_as_it_goes(ingested) -> None:
     reconcile(conn, RUN_ID, tiers=frozenset({0, 1, 2}), on_tier=lambda o: seen.append(o.tier))
 
     assert seen == [0, 1, 2]
+
+
+def test_tier1_resolves_credits_tier0_declined(ingested) -> None:
+    """The tiers must compose: Tier 1 inherits Tier 0's residual and adds to it.
+
+    If this ever showed zero, the most likely cause is not that Tier 1 is weak but
+    that the orchestrator handed it rows Tier 0 had already claimed, or none at all.
+    """
+    conn = ingested
+    report = reconcile(conn, RUN_ID, tiers=frozenset({0, 1}))
+
+    assert report.tiers[1].tier == 1
+    assert report.tiers[1].matched_bank_txns > 0
+
+
+def test_tier1_never_reclaims_a_settlement_tier0_posted(ingested) -> None:
+    """A settlement spent twice is money counted twice, and no later tier recomputes
+    it. This is the failure the orchestrator's shared claim-set exists to prevent."""
+    import json
+
+    conn = ingested
+    reconcile(conn, RUN_ID, tiers=frozenset({0, 1}))
+    rows = conn.execute(text("SELECT settlement_ids_json FROM match_records")).all()
+    claimed = [sid for row in rows for sid in json.loads(row.settlement_ids_json)]
+
+    assert len(claimed) == len(set(claimed))
+
+
+def test_tier1_matches_are_recorded_below_full_confidence(ingested) -> None:
+    """Confidence 1.0 means "unimpeachable" and belongs to Tier 0 alone. A tolerant
+    match that claimed certainty would make the audit trail lie about how it was made.
+    """
+    conn = ingested
+    reconcile(conn, RUN_ID, tiers=frozenset({0, 1}))
+    rows = conn.execute(
+        text("SELECT confidence, rule_id FROM match_records WHERE tier = 1")
+    ).all()
+
+    assert rows
+    for row in rows:
+        assert row.rule_id == RULE_TOLERANT
+        assert 0.90 <= row.confidence < 1.0

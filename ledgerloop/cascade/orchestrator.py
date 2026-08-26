@@ -18,7 +18,7 @@ would let an incomplete run be quoted as a complete one.
 
 **A tier that is requested but contributes nothing still reports a zero.** A missing row
 reads as "not asked for"; a zero reads as "asked for, found nothing". Only the second is
-honest while tiers 1-3 are unimplemented.
+honest while tiers 2 and 3 are unimplemented.
 
 The per-tier count goes to a callback rather than to stdout. A library that prints is a
 library that cannot be tested, and the CLI is the right place to decide how a run looks.
@@ -33,6 +33,7 @@ from sqlalchemy import Connection
 
 from ledgerloop.audit.provenance import ProposedMatch, record_match
 from ledgerloop.cascade.tier0_exact import match_tier0
+from ledgerloop.cascade.tier1_tolerant import match_tier1
 from ledgerloop.ingest.schemas import BankRow, SettlementRow
 from ledgerloop.store.db import (
     finish_run,
@@ -43,11 +44,6 @@ from ledgerloop.store.db import (
 )
 
 VALID_TIERS = frozenset({0, 1, 2, 3})
-
-#: Tiers with an implementation today. Everything else reports zero rather than
-#: silently disappearing from the report.
-IMPLEMENTED_TIERS = frozenset({0})
-
 
 @dataclass(frozen=True)
 class TierOutcome:
@@ -162,13 +158,13 @@ def _run_tier(
 ) -> list[ProposedMatch]:
     """Dispatch to a tier implementation, or return nothing if it does not exist yet.
 
-    Tiers 1-3 are stubs. Returning an empty list here — rather than skipping the tier —
-    is what lets the report distinguish "found nothing" from "never ran".
+    Tiers 2 and 3 are still stubs. Returning an empty list here — rather than skipping
+    the tier — is what lets the report distinguish "found nothing" from "never ran".
     """
     if tier == 0:
         return match_tier0(bank_txns, settlements)
+    if tier == 1:
+        return match_tier1(bank_txns, settlements)
     if tier == 3 and no_llm:
-        return []
-    if tier not in IMPLEMENTED_TIERS:
         return []
     return []

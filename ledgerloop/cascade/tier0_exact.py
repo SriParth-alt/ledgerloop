@@ -12,14 +12,20 @@ database and no network. Hard rule 1 (tiers 0-2 never call a model) is therefore
 auditable by reading the imports, and a difficult case can be constructed in four lines
 instead of being staged through a CSV.
 
-**Known limitation, stated plainly.** The amount-and-date rule is the only place in
-tiers 0-2 that can post a wrong match. If a batched credit's total coincidentally
-equals some unrelated settlement's net on the same date, and each key happens to be
-unique on its own side, this tier posts at confidence 1.0 and nothing later revisits
-it. The uniqueness guard does not close that hole — it cannot, because the tier has no
-way to know a credit was batched. That is inherent to the rule as specified in §6, and
-the eval harness exists to measure exactly this. If day 8 reports a non-zero false-match
-rate, this rule is the first thing to look at.
+**Both rules require the money to agree exactly.** §6 describes the reference rule
+without an amount condition, and taken literally that is wrong: a batched credit's
+narration carries only its *lead* settlement's reference, so matching on the reference
+alone pairs a credit covering N settlements with one of them at confidence 1.0 and
+marks it resolved. Measured on the realistic fixture, that was 25% of everything this
+tier posted. A reference that matches while the amount does not is evidence of a batch,
+and batches belong to Tier 2 (ADR-018).
+
+**Known limitation, stated plainly.** The amount-and-date rule can still post a wrong
+match. If a batched credit's total coincidentally equals some unrelated settlement's
+net on the same date, and each key happens to be unique on its own side, this tier
+posts at confidence 1.0 and nothing later revisits it. The uniqueness guard cannot
+close that hole, because the tier has no way to know a credit was batched. The eval
+harness exists to measure exactly this (ADR-015).
 """
 
 from __future__ import annotations
@@ -52,7 +58,10 @@ _NON_ALPHANUMERIC = re.compile(r"[^A-Z0-9]")
 #: Narration fields are separated by '/'. Splitting on '-' as well would destroy every
 #: delimiter-varied reference: NARRATION_NOISE injects a hyphen *inside* the token, so
 #: 'RZRPY3-482986' would become two fragments that match nothing.
-_FIELD_SPLIT = re.compile(r"[/|]")
+#:
+#: Public because Tier 1 divides a narration the same way when scoring the counterparty
+#: name. One definition of "where a narration field ends" for both tiers.
+FIELD_SPLIT = re.compile(r"[/|]")
 
 
 def normalise_utr(token: str) -> str:
@@ -91,7 +100,7 @@ def _looks_like_reference(token: str) -> bool:
 def utr_candidates(narration: str) -> frozenset[str]:
     """Every reference-shaped token a narration might be hiding."""
     tokens = set()
-    for field in _FIELD_SPLIT.split(narration):
+    for field in FIELD_SPLIT.split(narration):
         normalised = normalise_utr(field)
         if _looks_like_reference(normalised):
             tokens.add(normalised)
@@ -122,18 +131,32 @@ def _match_on_reference(
     )
 
     bank_pairs: list[tuple[object, str]] = []
-    candidates_by_bank: dict[str, frozenset[str]] = {}
     for row in bank_txns:
-        candidates = utr_candidates(row.narration)
-        candidates_by_bank[row.bank_txn_id] = candidates
-        bank_pairs.extend((token, row.bank_txn_id) for token in candidates)
+        bank_pairs.extend(
+            (token, row.bank_txn_id) for token in utr_candidates(row.narration)
+        )
     bank_by_utr = _unique_by(bank_pairs)
+
+    bank_by_id = {row.bank_txn_id: row for row in bank_txns}
+    settlement_by_id = {row.settlement_id: row for row in settlements}
 
     matches: list[ProposedMatch] = []
     for token, settlement_id in sorted(settlement_by_utr.items(), key=lambda item: str(item[0])):
         bank_txn_id = bank_by_utr.get(token)
         if bank_txn_id is None:
             continue
+
+        bank_row = bank_by_id[bank_txn_id]
+        settlement_row = settlement_by_id[settlement_id]
+
+        # The money must corroborate the reference. A batched credit carries only its
+        # lead settlement's reference, so matching on the reference alone would pair a
+        # credit covering N settlements with one of them and mark it resolved. A
+        # reference that matches while the amount does not is evidence of a batch, and
+        # batches belong to Tier 2.
+        if bank_row.credit_paise != settlement_row.net_amount_paise:
+            continue
+
         matches.append(
             ProposedMatch(
                 bank_txn_id=bank_txn_id,
@@ -147,6 +170,13 @@ def _match_on_reference(
                         bank_value=str(token),
                         settlement_value=str(token),
                         note="normalised reference matched exactly and uniquely on both sides",
+                    ),
+                    MatchEvidence(
+                        field="net_amount_paise",
+                        bank_value=str(bank_row.credit_paise),
+                        settlement_value=str(settlement_row.net_amount_paise),
+                        note="credit equals the settlement exactly; the reference is not "
+                        "explaining a batch",
                     ),
                 ),
             )

@@ -138,6 +138,42 @@ def test_exact_utr_match_posts_at_full_confidence() -> None:
     assert matches[0].evidence
 
 
+def test_a_reference_match_with_a_mismatched_amount_falls_through() -> None:
+    """The defect found on day 5, pinned so it cannot come back.
+
+    A batched credit's narration carries only its *lead* settlement's reference.
+    Matching on the reference alone pairs a credit covering N settlements with one of
+    them, at confidence 1.0, and marks the credit resolved — orphaning the other
+    members and under-explaining the credit. On the realistic fixture that was 25% of
+    everything Tier 0 posted.
+
+    A reference that matches while the money does not is evidence of a *batch*, not of
+    a 1:1 match. It belongs to Tier 2.
+    """
+    matches = match_tier0(
+        [bank("BNK1", credit=250_00)],
+        [settlement("STL1", net=100_00)],
+    )
+
+    assert matches == []
+
+
+def test_a_reference_match_with_an_exact_amount_still_posts() -> None:
+    """The guard must not cost the matches Tier 0 legitimately makes."""
+    matches = match_tier0([bank(credit=100_00)], [settlement(net=100_00)])
+
+    assert _rules(matches) == [RULE_UTR_EXACT]
+
+
+def test_tier0_does_not_absorb_paise_drift() -> None:
+    """Tier 0 is the exact tier. A credit three paise off its settlement is Tier 1's
+    problem, where a tolerance band exists precisely to absorb it — and where the match
+    is recorded at 0.99 rather than asserting certainty it does not have."""
+    matches = match_tier0([bank(credit=100_00 - 3)], [settlement(net=100_00)])
+
+    assert matches == []
+
+
 def test_a_utr_shared_by_two_settlements_matches_nothing() -> None:
     """§6's uniqueness guard, settlement side. Two settlements carrying one reference
     is a data problem; picking either is a coin flip on the books."""

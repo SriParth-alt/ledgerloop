@@ -64,6 +64,21 @@ def test_same_seed_reproduces_byte_identical_files(tmp_path: Path) -> None:
         assert _sha256(first[key]) == _sha256(second[key]), f"{key} not byte-identical"
 
 
+def test_every_fixture_reproduces_byte_identically(tmp_path: Path) -> None:
+    """Day 2's done-condition, held for all three fixtures rather than one.
+
+    This is a regression guard, not a new capability: it passes today. It exists
+    because the holiday calendar moves out of this package on day 5, and a move that
+    silently altered generated data would invalidate every fixture without failing
+    anything else.
+    """
+    for name in ("easy", "realistic", "adversarial"):
+        first = generate_fixture(fixture=name, settlements=60, seed=42, out_dir=tmp_path / "a")
+        second = generate_fixture(fixture=name, settlements=60, seed=42, out_dir=tmp_path / "b")
+        for key in EXPECTED_OUTPUT_KEYS:
+            assert _sha256(first[key]) == _sha256(second[key]), f"{name}/{key} drifted"
+
+
 def test_different_seed_produces_different_data(tmp_path: Path) -> None:
     """Guards the guard: a generator that ignores its seed would pass the test above."""
     first = write_batch(_batch(seed=42), tmp_path / "a")

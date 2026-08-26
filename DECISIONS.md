@@ -567,3 +567,48 @@ covers cases where the tier must *decline*. The cost is that the orchestrator ho
 it tracks which settlements have been claimed across tiers, and a bug there could let one settlement
 be spent twice with no tier being at fault. That risk is concentrated in one place and covered by
 `test_no_settlement_is_matched_by_two_credits`, but it is real and it will grow as tiers 1-3 land.
+
+---
+
+## ADR-018 — Tier 0's reference rule requires the amount to corroborate it
+
+**Date:** 2026-08-26
+**Status:** Accepted. Amends the rule described in §6.
+
+**Context:** §6 specifies Tier 0's first rule as "match on exact normalised UTR", with no condition on
+the amount. Taken literally that is wrong, and it was implemented literally on day 4. A batched
+credit's narration carries only its *lead* settlement's reference, so the reference rule paired a
+credit covering N settlements with exactly one of them — at confidence 1.0, marking the credit
+resolved, orphaning the other members and under-explaining the money. Measured on the `realistic`
+fixture at 250 records, **45 of 180 posted matches (25%) had a credit that did not equal the
+settlement it was matched to.**
+
+This was found on day 5 while measuring Tier 1, not by a test. Day 4's tests all passed: every one of
+them constructed a 1:1 case, so none of them could see it.
+
+**Decision:** Both Tier 0 rules now require exact amount agreement. A reference that matches while the
+money does not is evidence that the credit is a *batch*, and it falls through to Tier 2.
+
+**Alternatives considered:**
+- **Leave it and let day 8 measure it.** Lost: the eval harness exists to find defects we do not
+  already know about. Spending it re-confirming a 25% false-match class we can see today wastes the
+  measurement, and every ablation arm built on that Tier 0 would need rerunning anyway.
+- **Have the reference rule emit a partial match covering the lead settlement only.** Lost: a match
+  asserting `credit = {A}` when the truth is `credit = {A, B}` is wrong, not partially right. It also
+  consumes the credit, so Tier 2 never sees the batch it was built to solve.
+- **Accept the amount within Tier 1's tolerance rather than exactly.** Lost: Tier 0 is the exact tier.
+  Drift belongs to Tier 1, which has a tolerance band and records 0.99 rather than asserting a
+  certainty it does not have.
+
+**Consequences:** On `realistic`, posted matches fall from 180 to 135 and large amount mismatches fall
+from 45 to zero. That headline drop is the point: rule 5 says a false match is worse than an
+exception, and 45 of the lost matches were wrong while the other 46 simply moved to Tier 1, where
+their paise drift is handled honestly. The residual grows from 5 to 50, which is Tier 2's actual
+workload finally becoming visible — before this, batched credits were being consumed by Tier 0 and
+the ablation would have shown Tier 2 contributing almost nothing.
+
+The cost is a departure from §6 as written, which must be stated in the write-up rather than
+glossed. The deeper lesson is about the tests, not the rule: sixteen Tier 0 tests passed throughout,
+because every one of them built a 1:1 case. The defect lived in the interaction between a tier and a
+chaos injector, and only appeared when the two met on a real fixture. Unit tests over hand-built rows
+cannot find that class of bug, and day 8's harness is the thing that can.

@@ -151,3 +151,22 @@ class FeeModel:
 
 
 DEFAULT_FEE_MODEL = FeeModel()
+
+#: Public holidays inside the build's generation window.
+#:
+#: This lives here, beside the business-day arithmetic that consumes it, because two
+#: independent callers now need the *same* calendar: the generator, which decides when a
+#: settlement lands, and Tier 1, which decides whether a credit arrived inside the
+#: plausible window. If those two disagreed by a single holiday, Tier 1 would reject
+#: correct matches every time a settlement straddled one — and the failure would look
+#: like a tolerance problem rather than a calendar problem.
+#:
+#: Not a complete Indian holiday calendar. It covers the dates the fixtures can reach
+#: and is stated as fixture configuration, not as a claim about the RBI calendar.
+INDIAN_HOLIDAYS: frozenset[date] = frozenset(
+    {date(2026, 8, 15), date(2026, 9, 17), date(2026, 10, 2)}
+)
+
+#: The model both the generator and the cascade use. ``DEFAULT_FEE_MODEL`` is left
+#: holiday-free so the property tests keep exercising the arithmetic in isolation.
+SETTLEMENT_FEE_MODEL = FeeModel(holidays=INDIAN_HOLIDAYS)

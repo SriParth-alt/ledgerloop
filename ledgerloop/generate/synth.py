@@ -42,22 +42,13 @@ from ledgerloop.generate.chaos import (
     noisy_narration,
     paise_drift,
 )
-from ledgerloop.generate.fee_model import FeeModel, PaymentMethod
+from ledgerloop.generate.fee_model import SETTLEMENT_FEE_MODEL, FeeModel, PaymentMethod
 from ledgerloop.ingest.schemas import BankRow, InvoiceRow, SettlementRow
 
 INVOICES_FILE = "ledger_invoices.csv"
 SETTLEMENTS_FILE = "pg_settlements.csv"
 BANK_FILE = "bank_statement.csv"
 TRUTH_FILE = "truth_links.csv"
-
-#: Public holidays inside the generation window. Lives here rather than in the fee
-#: model because it is fixture data, not pricing. When Tier 1 needs the same calendar
-#: on day 5 it gets promoted, with a second caller to justify the move.
-GENERATOR_HOLIDAYS: frozenset[date] = frozenset(
-    {date(2026, 8, 15), date(2026, 9, 17), date(2026, 10, 2)}
-)
-
-GENERATOR_FEE_MODEL = FeeModel(holidays=GENERATOR_HOLIDAYS)
 
 DEFAULT_START = date(2026, 8, 3)
 OPENING_BALANCE_PAISE = 25_00_00_000
@@ -319,7 +310,7 @@ def generate_batch(
     settlements: int,
     seed: int,
     profile: ChaosProfile,
-    fee_model: FeeModel = GENERATOR_FEE_MODEL,
+    fee_model: FeeModel = SETTLEMENT_FEE_MODEL,
     start: date = DEFAULT_START,
 ) -> GeneratedBatch:
     """Build one complete batch: three source views plus the truth that explains them.
