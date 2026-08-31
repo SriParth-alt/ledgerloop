@@ -806,3 +806,99 @@ The wider lesson is about the guard rather than the layout. It was written on da
 boundary that had no traffic across it for seven days, and the moment traffic appeared it caught a
 real violation in the first thing built on top of it. That is the argument for writing structural
 tests before the code they constrain.
+
+---
+
+## ADR-024 — Gate failures are tested with a scripted adapter, not a live model
+
+**Date:** 2026-08-31
+**Status:** Accepted
+
+**Context:** §7.3 requires the membership gate to be *demoed live* by injecting a deliberately
+malformed response. That is not something a real model can be asked to do. You cannot instruct a
+model to fabricate a settlement identifier on cue, and if you could, the demonstration would prove
+nothing about the gate — only that the model complied.
+
+**Decision:** The adapter is a `Protocol` with a `ScriptedAdapter` implementation that returns
+prepared responses in order. Every gate failure in the test suite is driven by a hand-written
+response. No test makes a network call.
+
+**Alternatives considered:**
+- **Record real responses and replay them.** Lost: it captures the responses a model happened to give,
+  which are overwhelmingly well-formed. The failure modes the gates exist for — a fabricated
+  identifier, a confident proposal whose arithmetic is wrong — would have to be hand-edited into the
+  recording anyway, at which point the recording is doing nothing.
+- **Test against a live model.** Lost: non-deterministic, costs money per run, needs a key in CI, and
+  cannot produce the one failure §7.3 asks to demonstrate.
+
+**Consequences:** Every rejection path is covered, including ones a real model might never produce in
+a thousand runs — a response naming two fabricated ids, a proposal at confidence 0.99 whose amounts
+are three orders of magnitude out, a response that fails membership *and* arithmetic so the gate order
+can be asserted. The scripted adapter is also what makes the live demo possible: hand it
+`["STL_GHOST"]` on stage and the gate rejects, the counter increments, and the batch keeps running.
+
+The cost is that these tests say nothing about whether a real model produces useful proposals. That
+is a genuinely different question, it needs an API key, and it is answered by the ablation table
+rather than by the suite. Nobody should read 32 passing tests as evidence that Tier 3 *works* — only
+that it cannot be made to post something the gates should have caught.
+
+---
+
+## ADR-025 — `--no-llm` runs Tier 3 without an adapter rather than skipping it
+
+**Date:** 2026-08-31
+**Status:** Accepted
+
+**Context:** §8 promises that when the model is unavailable the batch completes, the auto-match rate
+falls, and correctness does not. There are two ways to implement that: skip Tier 3 entirely, or run it
+with no adapter so every record it would have adjudicated becomes an exception.
+
+**Decision:** Tier 3 runs. With no adapter and no cached response, each affected record raises
+`MODEL_UNAVAILABLE` and the run is marked degraded.
+
+**Alternatives considered:**
+- **Skip the tier.** Lost: the residual would go silently unexamined. The run would look identical to
+  a `--tiers 0,1,2` ablation arm, and the only difference — that fifty records *should* have been
+  adjudicated and were not — would exist nowhere in the data.
+
+**Consequences:** Degradation is visible where it matters, in the exception queue. On the adversarial
+fixture a `--no-llm` run raises 50 `MODEL_UNAVAILABLE` rows carrying their value at risk, so a human
+can see exactly what went unexamined and what it was worth. This is also what makes ADR-016's
+`degraded` flag meaningful rather than decorative — the flag says the numbers are not comparable, and
+the queue says why.
+
+The cost is fifty queue rows that are not really the merchant's problem: they are our outage, filed
+against their reconciliation. A run that degrades produces a noisier queue than one that succeeds,
+and the reason code is the only thing distinguishing them.
+
+---
+
+## ADR-026 — The provider adapter ships unexercised, and the cached fixtures are a human's job
+
+**Date:** 2026-08-31
+**Status:** Accepted
+
+**Context:** Tier 3 needs a real model to produce real numbers, and `cache.py` requires committed
+fixture responses so CI can run Tier 3 without a key. Neither was possible today: the work was done
+without API credentials, and sending a merchant's data to a model provider is not a step to take
+without an explicit decision.
+
+**Decision:** The `AnthropicAdapter` is written and documented as **exercised by no test**. The
+committed cache fixture is deferred to a run performed by a human with a key.
+
+**Alternatives considered:**
+- **Ship no real adapter until it can be tested.** Lost: the provider-agnostic seam is itself an
+  architectural claim (§10 — "no vendor lock-in"), and an interface with only a test double behind it
+  does not demonstrate it.
+- **Mark the adapter as tested because the interface is.** Refused. The `Protocol` is covered; the
+  HTTP call is not, and saying otherwise in a project whose entire argument is honest measurement
+  would be the wrong kind of inconsistency.
+
+**Consequences:** The two rows of §9.2 that need Tier 3 — Full cascade and LLM-only baseline — remain
+*not yet measured*, and the LLM-only control arm is the one that turns the cascade from an assertion
+into a result. That is the single largest gap in the submission today, and it closes with one run:
+generate the adversarial fixture, run the cascade with a key, commit the resulting cache directory,
+and the ablation completes without a key thereafter.
+
+Until then the honest statement is that Tier 3's *safety* is thoroughly tested and its *usefulness* is
+not measured at all. Those are different claims and the write-up should not blur them.

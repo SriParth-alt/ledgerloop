@@ -40,8 +40,11 @@ from ledgerloop.audit.provenance import TierResult, record_exception, record_mat
 from ledgerloop.cascade.tier0_exact import match_tier0
 from ledgerloop.cascade.tier1_tolerant import match_tier1
 from ledgerloop.cascade.tier2_subsetsum import match_tier2
+from ledgerloop.cascade.tier3_llm import match_tier3
 from ledgerloop.exceptions.codes import TERMINAL
 from ledgerloop.ingest.schemas import BankRow, SettlementRow
+from ledgerloop.llm.adapter import LLMAdapter
+from ledgerloop.llm.cache import ResponseCache
 from ledgerloop.store.db import (
     finish_run,
     load_bank_txns,
@@ -60,6 +63,9 @@ class TierOutcome:
     matched_bank_txns: int
     matched_settlements: int
     exceptions_raised: int = 0
+    llm_invocations: int = 0
+    cache_hits: int = 0
+    hallucinations: int = 0
 
 
 @dataclass(frozen=True)
@@ -76,6 +82,9 @@ class ReconcileReport:
     tiers: tuple[TierOutcome, ...]
     unmatched_bank_txns: int
     unmatched_settlements: int
+    llm_invocations: int = 0
+    cache_hits: int = 0
+    hallucinations: int = 0
 
 
 def parse_tiers(spec: str) -> frozenset[int]:
@@ -108,6 +117,8 @@ def reconcile(
     *,
     tiers: frozenset[int],
     no_llm: bool = False,
+    adapter: LLMAdapter | None = None,
+    cache: ResponseCache | None = None,
     on_tier: Callable[[TierOutcome], None] | None = None,
 ) -> ReconcileReport:
     """Execute the requested tiers in order, posting what each one resolves."""
@@ -125,7 +136,14 @@ def reconcile(
             row for row in settlements if row.settlement_id not in claimed_settlements
         ]
 
-        result = _run_tier(tier, residual_bank, residual_settlements, no_llm=no_llm)
+        result, counters = _run_tier(
+            tier,
+            residual_bank,
+            residual_settlements,
+            no_llm=no_llm,
+            adapter=adapter,
+            cache=cache,
+        )
         for match in result.matches:
             record_match(conn, run_id, match)
             claimed_bank.add(match.bank_txn_id)
@@ -147,6 +165,9 @@ def reconcile(
             matched_bank_txns=len(result.matches),
             matched_settlements=sum(len(match.settlement_ids) for match in result.matches),
             exceptions_raised=len(result.exceptions),
+            llm_invocations=counters[0],
+            cache_hits=counters[1],
+            hallucinations=counters[2],
         )
         outcomes.append(outcome)
         if on_tier is not None:
@@ -166,6 +187,9 @@ def reconcile(
         tiers=tuple(outcomes),
         unmatched_bank_txns=len(bank_txns) - len(claimed_bank),
         unmatched_settlements=len(settlements) - len(claimed_settlements),
+        llm_invocations=sum(outcome.llm_invocations for outcome in outcomes),
+        cache_hits=sum(outcome.cache_hits for outcome in outcomes),
+        hallucinations=sum(outcome.hallucinations for outcome in outcomes),
     )
 
 
@@ -175,16 +199,32 @@ def _run_tier(
     settlements: Sequence[SettlementRow],
     *,
     no_llm: bool,
-) -> TierResult:
-    """Dispatch to a tier implementation, or return nothing if it does not exist yet.
+    adapter: LLMAdapter | None = None,
+    cache: ResponseCache | None = None,
+) -> tuple[TierResult, tuple[int, int, int]]:
+    """Dispatch to a tier, returning its result and its model counters.
 
-    Tier 3 is still a stub. Returning an empty result here — rather than skipping the
-    tier — is what lets the report distinguish "found nothing" from "never ran".
+    ``--no-llm`` makes Tier 3 run with no adapter rather than skipping it. The
+    distinction matters: skipping would leave the residual silently unexamined, while
+    running without an adapter raises MODEL_UNAVAILABLE per record — which is what §8
+    promises and what makes the degradation visible in the queue instead of invisible.
     """
+    empty = (0, 0, 0)
     if tier == 0:
-        return TierResult(matches=match_tier0(bank_txns, settlements), exceptions=[])
+        return TierResult(matches=match_tier0(bank_txns, settlements), exceptions=[]), empty
     if tier == 1:
-        return TierResult(matches=match_tier1(bank_txns, settlements), exceptions=[])
+        return TierResult(matches=match_tier1(bank_txns, settlements), exceptions=[]), empty
     if tier == 2:
-        return match_tier2(bank_txns, settlements)
-    return TierResult(matches=[], exceptions=[])
+        return match_tier2(bank_txns, settlements), empty
+    if tier == 3:
+        outcome = match_tier3(
+            bank_txns,
+            settlements,
+            adapter=None if no_llm else adapter,
+            cache=cache if cache is not None else ResponseCache(None),
+        )
+        return (
+            TierResult(matches=outcome.matches, exceptions=outcome.exceptions),
+            (outcome.llm_invocations, outcome.cache_hits, outcome.hallucinations),
+        )
+    return TierResult(matches=[], exceptions=[]), empty

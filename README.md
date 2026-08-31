@@ -81,7 +81,7 @@ result.
 
 ```bash
 make setup     # install
-make test      # 295 tests, no API key needed
+make test      # 327 tests, no API key needed
 make demo      # generate → reconcile → report
 make eval      # full ablation, writes results/metrics.md
 ```
@@ -106,7 +106,7 @@ These are load-bearing, not style preferences. They are enforced by tests where 
 
 ## Status
 
-In progress. 295 tests pass.
+In progress. 327 tests pass.
 
 **Implemented and tested:** money arithmetic (integer paise), the MDR/GST/TDS fee model and
 settlement-date math, the Tier 3 LLM output contract, exception reason codes, and the SQL
@@ -123,12 +123,21 @@ records carrying tier, rule, evidence, and the SHA-256 of every source row that 
 decision, plus reason-coded exceptions. `ledgerloop generate` and `ledgerloop reconcile`
 both work, the latter printing a live per-tier count.
 
-The eval harness — scoring against generator ground truth, with a match counted correct
-only when its settlement set matches exactly. `make demo` and `make eval` both work.
+Tier 3 — constrained adjudication of the residual, with the three gates and the
+confidence threshold. The eval harness — scoring against generator ground truth, with a
+match counted correct only when its settlement set matches exactly. `make demo` and
+`make eval` both work.
 
-**Stubbed, with implementation notes:** cascade tier 3, the exception queue and
-clustering, rule promotion, and the API. `exceptions` and `serve` exit non-zero rather
-than pretending to run.
+**Stubbed, with implementation notes:** the exception queue and clustering, rule
+promotion, and the API. `exceptions` and `serve` exit non-zero rather than pretending to
+run.
+
+**Tier 3 is tested but not measured.** Every rejection path is covered — a fabricated
+identifier discards the whole response, a proposal whose arithmetic fails is rejected at
+any confidence, a missing model degrades the run rather than failing it. None of that
+says whether the model produces *useful* proposals. Answering that needs one run with an
+API key to populate the committed response cache; see [ADR-026](DECISIONS.md). Until
+then the Full cascade and LLM-only rows of the ablation stay *not yet measured*.
 
 **Measured so far:** the three deterministic arms of the §9.2 ablation, across all three
 fixtures. See [`results/metrics.md`](results/metrics.md) — that file is generated, and no
