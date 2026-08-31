@@ -1,0 +1,14 @@
+# Line endings are normalised to LF in the repository, on every platform.
+#
+# This project is developed on Windows and its CI runs on Linux, and §5.6 requires the
+# generator to reproduce byte-identical fixtures. Without this, git would store CRLF for
+# files checked out on Windows, the fixtures would differ across platforms, and
+# reproducibility would hold locally while failing in CI — the worst place to find out.
+#
+# The generator already pins its own output to LF when writing (ADR-008). This is the
+# other half: what git does to everything else.
+* text=auto eol=lf
+
+# Generated fixtures and cached model responses are compared byte for byte.
+*.csv text eol=lf
+*.json text eol=lf
