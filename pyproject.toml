@@ -27,7 +27,7 @@ dev = [
 ]
 
 [project.scripts]
-ledgerloop = "ledgerloop.cli:app"
+ledgerloop = "eval.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -52,6 +52,7 @@ select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
 # not a mutable-default bug. B008 misfires on every Typer CLI, so it is scoped off
 # here rather than dropped from `select` repo-wide.
 "ledgerloop/cli.py" = ["B008"]
+"eval/cli.py" = ["B008"]
 
 [tool.mypy]
 python_version = "3.11"

@@ -507,6 +507,12 @@ reports a non-zero false-match rate, `rule_id` attributes it to `T0-AMOUNT-DATE-
 and the first alternative above becomes the fix. Shipping the rule and measuring it is more honest
 than dropping it on suspicion — but the measurement is not optional, and this ADR is the reminder.
 
+**Update, 2026-08-26 (day 8).** Measured. On `adversarial` at 250 records the T0-only arm posted 22
+matches with **zero** wrong, and the false-match rate is 0.0% at every arm on every fixture. The hole
+described above is real in principle and did not fire in practice, so the rule stays as specified.
+This ADR stays open rather than closed: the risk is a property of the rule, not of this fixture, and
+a different seed or a denser batch could still surface it. `rule_id` is what would attribute it.
+
 ---
 
 ## ADR-016 — An ablation arm is a configuration; a missing model is a degradation
@@ -758,3 +764,45 @@ exhaust the node budget and be declined as `POOL_TOO_LARGE` where meet-in-the-mi
 resolved it. Under ADR-020 those credits still reach Tier 3, so the failure is a downgrade rather
 than a loss. If day 8 shows `POOL_TOO_LARGE` carrying a meaningful share of the residual, this
 decision is the one to revisit — and the measurement above is the baseline to beat.
+
+---
+
+## ADR-023 — Evaluation commands live in `eval/`, and the entrypoint composes both halves
+
+**Date:** 2026-08-26
+**Status:** Accepted
+
+**Context:** `report` and `evaluate` were written into `ledgerloop/cli.py` alongside `generate` and
+`reconcile`, which is where a CLI's commands normally go. The build failed immediately:
+
+    FAILED tests/test_no_truth_leak.py::test_matcher_never_imports_eval_package[cli.py]
+
+Both commands need ground truth to score against, so both import `eval`, and `cli.py` sits inside the
+package that may never read truth. The guard has been enforcing that boundary since day 1 with
+nothing on the other side of it. Day 8 gave it something to catch, and it caught it on the first try.
+
+**Decision:** `report` and `evaluate` live in `eval/cli.py`, which imports the matcher's Typer app and
+registers onto it. The published entrypoint becomes `eval.cli:main`.
+
+**Alternatives considered:**
+- **Add `cli.py` to `TRUTH_AUTHORING_DIRS`.** Refused outright. Widening the exemption is the one
+  change the guard's own docstring forbids, and the exemption exists for the generator — which
+  *writes* truth — not for anything that reads it.
+- **Import `eval` lazily inside the function bodies.** Lost, and it is worth saying why it is worse
+  than the honest version: it would pass the guard only because the guard walks import statements,
+  while leaving the matcher package genuinely able to read ground truth at runtime. Defeating a
+  correctness check by hiding from it is not a fix.
+- **Move the whole CLI into `eval/`.** Lost: `generate` and `reconcile` have no business depending on
+  the evaluator, and the matcher should stay runnable without it.
+
+**Consequences:** The dependency now runs one way and only one way — `eval` knows about the matcher,
+the matcher never learns an evaluator exists — so the capability to read truth cannot drift sideways
+into the cascade by someone adding an import in the wrong file. The cost is a mild surprise in the
+layout: the published `ledgerloop` script resolves to `eval.cli:main`, which reads oddly until you
+know why, and §11's repository structure does not show it. That is worth stating in the write-up,
+because a reviewer who notices it and is not told the reason will assume it is an accident.
+
+The wider lesson is about the guard rather than the layout. It was written on day 1 to protect a
+boundary that had no traffic across it for seven days, and the moment traffic appeared it caught a
+real violation in the first thing built on top of it. That is the argument for writing structural
+tests before the code they constrain.

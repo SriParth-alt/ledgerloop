@@ -1,8 +1,15 @@
-"""LedgerLoop command line.
+"""LedgerLoop command line — the matcher's own commands.
 
 The CLI is the demo surface. `make demo` runs generate -> reconcile -> report, and
 that sequence is what the pitch video shows. Keep the output legible on a recording:
 streaming per-tier counts, then a metrics table.
+
+`report` and `evaluate` are **not** here. They need ground truth to score against, and
+this module sits inside the package that may never read it —
+`tests/test_no_truth_leak.py` fails on any import of `eval` from here, and it is right
+to. Those two commands live in `eval/cli.py`, which composes both halves into the
+published entrypoint. The dependency runs one way: `eval` may know about the matcher,
+never the reverse.
 """
 
 from __future__ import annotations
@@ -124,34 +131,6 @@ def reconcile(
         f"{report.unmatched_settlements} settlements"
         + ("  [yellow](degraded run)[/]" if report.degraded else "")
     )
-
-
-@app.command()
-def report(
-    run_id: str = typer.Option(..., help="Which run to summarise."),
-) -> None:
-    """Print the metrics table and exception breakdown for one run.
-
-    TODO(day-8): wire to eval.metrics.
-    """
-    console.print(f"[yellow]not implemented[/] — report run={run_id}")
-    raise typer.Exit(code=1)
-
-
-@app.command()
-def evaluate(
-    all_fixtures: bool = typer.Option(False, "--all-fixtures"),
-    out: Path = typer.Option(Path("results/metrics.md")),
-) -> None:
-    """Run the full ablation and write results.
-
-    TODO(day-8): wire to eval.ablation. Must include the LLM-only baseline — it is
-    the control arm that makes every other number mean something.
-
-    Everything in README.md comes from this command. Never hand-write a metric.
-    """
-    console.print(f"[yellow]not implemented[/] — evaluate -> {out}")
-    raise typer.Exit(code=1)
 
 
 @app.command()
