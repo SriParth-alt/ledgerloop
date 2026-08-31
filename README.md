@@ -81,7 +81,7 @@ result.
 
 ```bash
 make setup     # install
-make test      # 241 tests, no API key needed
+make test      # 266 tests, no API key needed
 make lint      # ruff + mypy
 ```
 
@@ -89,7 +89,7 @@ Working today:
 
 ```bash
 ledgerloop generate --fixture adversarial --records 250 --seed 42
-ledgerloop reconcile --run-id demo --fixture adversarial --tiers 0,1
+ledgerloop reconcile --run-id demo --fixture adversarial --tiers 0,1,2
 ```
 
 `make demo` and `make eval` are not usable yet — `report` and `evaluate` are still stubs and
@@ -111,7 +111,7 @@ These are load-bearing, not style preferences. They are enforced by tests where 
 
 ## Status
 
-In progress. 241 tests pass.
+In progress. 266 tests pass.
 
 **Implemented and tested:** money arithmetic (integer paise), the MDR/GST/TDS fee model and
 settlement-date math, the Tier 3 LLM output contract, exception reason codes, and the SQL
@@ -122,11 +122,13 @@ and line number, and `DUPLICATE_SUSPECTED` detection for a credit re-posted unde
 transaction id. Tier 0 — exact reference matching and unique amount-and-date matching, both
 behind a uniqueness guard, both requiring the amount to corroborate the match. Tier 1 —
 fee-model recomputation, settlement window, fuzzy reference and counterparty name, with
-amount and date as gates rather than weights. Provenance records carrying tier, rule,
-evidence, and the SHA-256 of every source row that fed the decision. `ledgerloop generate`
-and `ledgerloop reconcile` both work, the latter printing a live per-tier count.
+amount and date as gates rather than weights. Tier 2 — bounded subset-sum for batched
+payouts, declining rather than choosing when two subsets explain one credit. Provenance
+records carrying tier, rule, evidence, and the SHA-256 of every source row that fed the
+decision, plus reason-coded exceptions. `ledgerloop generate` and `ledgerloop reconcile`
+both work, the latter printing a live per-tier count.
 
-**Stubbed, with implementation notes:** cascade tiers 2 and 3, the exception queue and
+**Stubbed, with implementation notes:** cascade tier 3, the exception queue and
 clustering, rule promotion, the API, and the eval harness. `report` and `evaluate` exit
 non-zero rather than pretending to run.
 

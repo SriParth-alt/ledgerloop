@@ -18,7 +18,12 @@ would let an incomplete run be quoted as a complete one.
 
 **A tier that is requested but contributes nothing still reports a zero.** A missing row
 reads as "not asked for"; a zero reads as "asked for, found nothing". Only the second is
-honest while tiers 2 and 3 are unimplemented.
+honest while tier 3 is unimplemented.
+
+**Only ambiguity is terminal.** From Tier 2 onward a tier can raise as well as match. An
+AMBIGUOUS_SUBSET credit is removed from the residual, because §7.5 reserves that decision
+for a human. Every other reason is a capability limit and falls through — treating
+POOL_TOO_LARGE as terminal would silently deny Tier 3 the records it exists to handle.
 
 The per-tier count goes to a callback rather than to stdout. A library that prints is a
 library that cannot be tested, and the CLI is the right place to decide how a run looks.
@@ -31,9 +36,11 @@ from dataclasses import dataclass
 
 from sqlalchemy import Connection
 
-from ledgerloop.audit.provenance import ProposedMatch, record_match
+from ledgerloop.audit.provenance import TierResult, record_exception, record_match
 from ledgerloop.cascade.tier0_exact import match_tier0
 from ledgerloop.cascade.tier1_tolerant import match_tier1
+from ledgerloop.cascade.tier2_subsetsum import match_tier2
+from ledgerloop.exceptions.codes import TERMINAL
 from ledgerloop.ingest.schemas import BankRow, SettlementRow
 from ledgerloop.store.db import (
     finish_run,
@@ -52,6 +59,7 @@ class TierOutcome:
     tier: int
     matched_bank_txns: int
     matched_settlements: int
+    exceptions_raised: int = 0
 
 
 @dataclass(frozen=True)
@@ -117,16 +125,28 @@ def reconcile(
             row for row in settlements if row.settlement_id not in claimed_settlements
         ]
 
-        proposals = _run_tier(tier, residual_bank, residual_settlements, no_llm=no_llm)
-        for match in proposals:
+        result = _run_tier(tier, residual_bank, residual_settlements, no_llm=no_llm)
+        for match in result.matches:
             record_match(conn, run_id, match)
             claimed_bank.add(match.bank_txn_id)
             claimed_settlements.update(match.settlement_ids)
 
+        for raised in result.exceptions:
+            record_exception(conn, run_id, raised)
+            # Only *terminal* reasons remove a credit from the residual. Ambiguity is
+            # terminal by policy — §7.5 forbids the model from resolving it — and its
+            # settlements stay unclaimed, because a human may resolve the credit
+            # differently. Every other reason is a capability limit: POOL_TOO_LARGE says
+            # a deterministic search declined on complexity grounds, and Tier 3 may
+            # still resolve it from a handful of pre-filtered candidates.
+            if raised.bank_txn_id is not None and raised.code in TERMINAL:
+                claimed_bank.add(raised.bank_txn_id)
+
         outcome = TierOutcome(
             tier=tier,
-            matched_bank_txns=len(proposals),
-            matched_settlements=sum(len(match.settlement_ids) for match in proposals),
+            matched_bank_txns=len(result.matches),
+            matched_settlements=sum(len(match.settlement_ids) for match in result.matches),
+            exceptions_raised=len(result.exceptions),
         )
         outcomes.append(outcome)
         if on_tier is not None:
@@ -155,16 +175,16 @@ def _run_tier(
     settlements: Sequence[SettlementRow],
     *,
     no_llm: bool,
-) -> list[ProposedMatch]:
+) -> TierResult:
     """Dispatch to a tier implementation, or return nothing if it does not exist yet.
 
-    Tiers 2 and 3 are still stubs. Returning an empty list here — rather than skipping
-    the tier — is what lets the report distinguish "found nothing" from "never ran".
+    Tier 3 is still a stub. Returning an empty result here — rather than skipping the
+    tier — is what lets the report distinguish "found nothing" from "never ran".
     """
     if tier == 0:
-        return match_tier0(bank_txns, settlements)
+        return TierResult(matches=match_tier0(bank_txns, settlements), exceptions=[])
     if tier == 1:
-        return match_tier1(bank_txns, settlements)
-    if tier == 3 and no_llm:
-        return []
-    return []
+        return TierResult(matches=match_tier1(bank_txns, settlements), exceptions=[])
+    if tier == 2:
+        return match_tier2(bank_txns, settlements)
+    return TierResult(matches=[], exceptions=[])

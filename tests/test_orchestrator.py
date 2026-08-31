@@ -21,6 +21,7 @@ from sqlalchemy import text
 from ledgerloop.cascade.orchestrator import parse_tiers, reconcile
 from ledgerloop.cascade.tier0_exact import RULE_AMOUNT_DATE_UNIQUE, RULE_UTR_EXACT
 from ledgerloop.cascade.tier1_tolerant import RULE_TOLERANT
+from ledgerloop.exceptions.codes import ExceptionCode
 from ledgerloop.generate.synth import generate_fixture
 from ledgerloop.ingest.loader import load_batch
 from ledgerloop.store.db import connect, initialise, start_run
@@ -161,10 +162,10 @@ def test_unimplemented_tiers_report_zero_rather_than_being_skipped(ingested) -> 
     missing row reads as 'not asked for'; a zero reads as 'asked for, found nothing',
     and only the second is true today."""
     conn = ingested
-    report = reconcile(conn, RUN_ID, tiers=frozenset({0, 1, 2}))
+    report = reconcile(conn, RUN_ID, tiers=frozenset({0, 1, 2, 3}))
 
-    assert [outcome.tier for outcome in report.tiers] == [0, 1, 2]
-    assert report.tiers[2].matched_bank_txns == 0
+    assert [outcome.tier for outcome in report.tiers] == [0, 1, 2, 3]
+    assert report.tiers[3].matched_bank_txns == 0
 
 
 def test_report_counts_what_is_left_unmatched(ingested) -> None:
@@ -231,3 +232,64 @@ def test_tier1_matches_are_recorded_below_full_confidence(ingested) -> None:
     for row in rows:
         assert row.rule_id == RULE_TOLERANT
         assert 0.90 <= row.confidence < 1.0
+
+
+def test_tier2_resolves_batched_credits_the_earlier_tiers_declined(ingested) -> None:
+    """Tier 0 and Tier 1 both work one settlement at a time, so a batched credit reaches
+    Tier 2 untouched. If this showed zero, the likely cause is not a weak search but a
+    pool that never reached it."""
+    conn = ingested
+    report = reconcile(conn, RUN_ID, tiers=frozenset({0, 1, 2}))
+
+    assert report.tiers[2].matched_bank_txns > 0
+
+
+def test_tier2_matches_name_every_member_of_the_batch(ingested) -> None:
+    """A batch record citing one settlement would understate what the credit covers."""
+    import json
+
+    conn = ingested
+    reconcile(conn, RUN_ID, tiers=frozenset({0, 1, 2}))
+    rows = conn.execute(
+        text("SELECT settlement_ids_json FROM match_records WHERE tier = 2")
+    ).all()
+
+    assert rows
+    assert any(len(json.loads(row.settlement_ids_json)) > 1 for row in rows), (
+        "tier 2 posted only single-member subsets; the batching injector is not reaching it"
+    )
+
+
+def test_tier2_exceptions_are_persisted_with_their_reason(ingested) -> None:
+    conn = ingested
+    report = reconcile(conn, RUN_ID, tiers=frozenset({0, 1, 2}))
+    raised = report.tiers[2].exceptions_raised
+    stored = conn.execute(
+        text(
+            "SELECT COUNT(*) FROM exceptions WHERE run_id = :r AND reason_code IN (:a, :p)"
+        ),
+        {
+            "r": RUN_ID,
+            "a": ExceptionCode.AMBIGUOUS_SUBSET.value,
+            "p": ExceptionCode.POOL_TOO_LARGE.value,
+        },
+    ).scalar_one()
+
+    assert stored == raised
+
+
+def test_a_declined_credit_is_removed_from_the_residual(ingested) -> None:
+    """A credit declined with a reason is terminal — neither matched nor passed down.
+
+    §7.5 forbids the model from resolving AMBIGUOUS_SUBSET, so an ambiguous credit
+    reaching Tier 3 would hand it exactly the decision policy reserves for a human.
+    """
+    conn = ingested
+    report = reconcile(conn, RUN_ID, tiers=frozenset({0, 1, 2}))
+
+    total = conn.execute(text("SELECT COUNT(*) FROM bank_txns")).scalar_one()
+    matched = sum(outcome.matched_bank_txns for outcome in report.tiers)
+    declined = sum(outcome.exceptions_raised for outcome in report.tiers)
+
+    assert declined > 0, "tier 2 declined nothing; the ambiguity path is untested here"
+    assert report.unmatched_bank_txns == total - matched - declined

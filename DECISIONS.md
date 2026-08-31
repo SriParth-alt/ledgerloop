@@ -612,3 +612,108 @@ glossed. The deeper lesson is about the tests, not the rule: sixteen Tier 0 test
 because every one of them built a 1:1 case. The defect lived in the interaction between a tier and a
 chaos injector, and only appeared when the two met on a real fixture. Unit tests over hand-built rows
 cannot find that class of bug, and day 8's harness is the thing that can.
+
+---
+
+## ADR-019 — Tier 2's tolerance band is flat, not proportional
+
+**Date:** 2026-08-26
+**Status:** Accepted
+
+**Context:** Tier 2 initially reused Tier 1's tolerance — the larger of a flat rupee and 0.5%. On
+`realistic` at 250 records that produced **4 matches and 36 `AMBIGUOUS_SUBSET` exceptions**. The
+ambiguity looked like a property of the data. It was not: on a ₹30,000 credit, 0.5% is a ±₹150
+window, and across a twenty-five settlement pool many subsets land inside it. The band had stopped
+absorbing error and started inventing coincidences.
+
+**Decision:** Tier 2 uses its own `subset_tolerance_bps`, defaulting to zero, so its band is the flat
+rupee alone.
+
+**Alternatives considered:**
+- **Keep Tier 1's band.** Lost: it reports genuine batches as ambiguous, which is not a conservative
+  failure — it is the *wrong diagnosis*. A finance associate reading 36 `AMBIGUOUS_SUBSET` rows would
+  conclude the data is pathological when the tolerance is simply too wide.
+- **Scale the band by subset size**, e.g. by √N. Lost: it invents a formula to defend with no
+  grounding in what the error actually is, and every value of N would need justifying separately.
+- **Tighten Tier 1's band to match.** Lost: Tier 1 genuinely needs the relative component, for the
+  reason below.
+
+**Consequences:** The justification is structural rather than tuned, which matters because a
+tolerance that was fitted to a fixture would be indefensible. Tier 1 *recomputes* the expected net
+from the fee model and must absorb that imprecision, so a relative band is right there. Tier 2 sums
+the settlements' **reported** nets — there is no recomputation and therefore no model error to
+absorb. The only thing it must tolerate is `PAISE_DRIFT`, one to three paise, which the flat rupee
+covers a hundred times over.
+
+Measured effect on `realistic`: matches 4 → 41, ambiguities 36 → 5, declines 10 → 4. The remaining
+ambiguities are close to the planted decoy count, which is what ADR-003 always intended the exception
+to mean. The cost is a real one: a merchant whose fee model is genuinely mis-specified would now miss
+Tier 2 rather than scrape in, and §8 says that should surface as an exception cluster. It will — as
+`NO_CANDIDATE` at the queue rather than as ambiguity here, which is the more honest signal. The knob
+is in config precisely so the ablation can vary it instead of taking this reasoning on faith.
+
+---
+
+## ADR-020 — Only ambiguity terminates a record; every other decline falls through
+
+**Date:** 2026-08-26
+**Status:** Accepted
+
+**Context:** Tier 2 is the first tier that can raise as well as match, which forced a question no
+earlier tier had to answer: when a tier declines a credit *with a reason*, does that credit still
+reach the next tier? The first implementation treated every raised exception as terminal. Measured
+on all three fixtures, the residual reaching Tier 3 was **zero** — 105 credits declined as
+`POOL_TOO_LARGE` had been swallowed, and the tier the whole architecture is built around would have
+received nothing.
+
+**Decision:** Only `AMBIGUOUS_SUBSET` removes a credit from the residual, expressed as `TERMINAL` in
+`exceptions/codes.py`. Everything else falls through.
+
+**Alternatives considered:**
+- **Every exception is terminal.** Lost: it conflates a *policy* refusal with a *capability* limit,
+  and silently starves Tier 3.
+- **No exception is terminal.** Lost: an `AMBIGUOUS_SUBSET` credit reaching Tier 3 would hand the
+  model the one decision §7.5 explicitly forbids it from making. Ambiguity is not a gap in our
+  capability that a better tier might close; it is a decision we have chosen to give a human.
+
+**Consequences:** The distinction is worth stating precisely because it is easy to state loosely.
+Ambiguity is terminal *by policy* — the arithmetic is perfect on both explanations and no tier,
+model or otherwise, is permitted to pick. `POOL_TOO_LARGE` is terminal *by nothing*: it records that
+a deterministic search declined on complexity grounds, and Tier 3 sees at most eight pre-filtered
+candidates, so it may well resolve what the subset search would not. The settlements in an ambiguous
+pool stay unclaimed either way, because a human may resolve the credit differently from any
+explanation we offered.
+
+---
+
+## ADR-021 — An oversized candidate pool is declined, not pruned
+
+**Date:** 2026-08-26
+**Status:** Accepted
+
+**Context:** §6 says two things that cannot both apply: "cap the pool at N ≤ 25 by nearest-date
+pruning", and "if the pool exceeds 25 after pruning, emit `POOL_TOO_LARGE`". If pruning caps it, it
+can never exceed. A decision was needed about which half is operative.
+
+**Decision:** If the candidate pool exceeds the cap, Tier 2 declines without searching. Nearest-date
+pruning is not implemented.
+
+**Alternatives considered:**
+- **Prune to the nearest 25 and search.** Lost, and this is the important one: the tier's entire
+  output is the claim "exactly one subset explains this credit". Searching a truncated pool makes
+  that a claim about a set we had already thrown members out of — the true batch might include a
+  settlement the pruning discarded, and the tier would then post a confidently wrong unique answer.
+  That is precisely the failure rule 5 exists to prevent, and it would be invisible in the metrics
+  because it looks like a successful match.
+- **Raise the cap.** Lost: the cap is not the real bound anyway. Twenty-five members still permits
+  2^25 nodes, which is why the search also carries an explicit node budget.
+
+**Consequences:** Pools are shrunk instead by a filter that costs nothing: a settlement whose net
+exceeds the credit cannot be a member of any subset summing to it, because every amount is positive.
+That is a proof rather than a heuristic, and it took `POOL_TOO_LARGE` on `adversarial` from 105
+declines to 43 without discarding a single reachable solution. What remains declined is genuinely
+dense — and under ADR-020 those credits still reach Tier 3 rather than being lost.
+
+The cost is a departure from §6 as written, which the write-up must state rather than gloss. The
+gain is that "bounded compute is itself an engineering signal" becomes true instead of decorative:
+both the pool cap and the node budget now actually refuse work rather than quietly truncating it.

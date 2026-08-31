@@ -25,6 +25,8 @@ from datetime import UTC, datetime
 
 from sqlalchemy import Connection, text
 
+from ledgerloop.exceptions.codes import ExceptionCode
+
 
 @dataclass(frozen=True)
 class MatchEvidence:
@@ -50,6 +52,42 @@ class ProposedMatch:
     rule_id: str
     confidence: float
     evidence: tuple[MatchEvidence, ...] = ()
+
+
+@dataclass(frozen=True)
+class ProposedException:
+    """A record the cascade declined to match, and why.
+
+    Lives beside ``ProposedMatch`` because both are things a tier *proposes* and the
+    store records — an exception is as much a part of the audit trail as a match, and
+    §9.1 reports the distribution across reason codes as a headline metric.
+
+    ``value_at_risk_paise`` is what the exception queue sorts by. A finance associate
+    with twenty minutes should spend them on the four-lakh exception, not the
+    three-hundred-rupee one.
+    """
+
+    code: ExceptionCode
+    bank_txn_id: str | None
+    settlement_id: str | None
+    value_at_risk_paise: int
+    detail: dict[str, object]
+
+
+@dataclass(frozen=True)
+class TierResult:
+    """Everything one tier decided: what it matched, and what it declined and why.
+
+    Tiers 0 and 1 only ever match. Tier 2 is the first that must also raise — an
+    ambiguous credit produces no match and an exception, and both outcomes have to
+    reach the orchestrator from the same call.
+
+    Lives here rather than in the orchestrator so a tier can return one without
+    importing the module that calls it.
+    """
+
+    matches: list[ProposedMatch]
+    exceptions: list[ProposedException]
 
 
 @dataclass(frozen=True)
@@ -196,3 +234,32 @@ def matches_for_run(conn: Connection, run_id: str) -> list[PostedMatch]:
         )
         for row in rows
     ]
+
+
+def record_exception(conn: Connection, run_id: str, exception: ProposedException) -> str:
+    """Write an exception row and return its id.
+
+    ``detail`` carries whatever a human needs to resolve it — for AMBIGUOUS_SUBSET that
+    is every candidate explanation, because §6 requires the choice to be presented
+    rather than made.
+    """
+    exception_id = str(uuid.uuid4())
+    conn.execute(
+        text(
+            "INSERT INTO exceptions (exception_id, run_id, bank_txn_id, settlement_id, "
+            "reason_code, value_at_risk_paise, detail_json, created_at) "
+            "VALUES (:exception_id, :run_id, :bank_txn_id, :settlement_id, :reason_code, "
+            ":value_at_risk_paise, :detail_json, :created_at)"
+        ),
+        {
+            "exception_id": exception_id,
+            "run_id": run_id,
+            "bank_txn_id": exception.bank_txn_id,
+            "settlement_id": exception.settlement_id,
+            "reason_code": exception.code.value,
+            "value_at_risk_paise": exception.value_at_risk_paise,
+            "detail_json": json.dumps(exception.detail, default=str),
+            "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        },
+    )
+    return exception_id

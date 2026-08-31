@@ -69,6 +69,17 @@ HUMAN_RESOLVABLE: frozenset[ExceptionCode] = frozenset(
     }
 )
 
+#: Codes that end a record's journey through the cascade.
+#:
+#: Only ambiguity is terminal, and it is terminal by *policy* rather than by capability:
+#: section 7.5 forbids the model from resolving AMBIGUOUS_SUBSET, so letting such a
+#: record reach Tier 3 would hand it exactly the decision reserved for a human.
+#:
+#: Everything else is a capability limit and must fall through. POOL_TOO_LARGE in
+#: particular says only that a deterministic search declined on complexity grounds —
+#: Tier 3 sees at most eight pre-filtered candidates and may well resolve it.
+TERMINAL: frozenset[ExceptionCode] = frozenset({ExceptionCode.AMBIGUOUS_SUBSET})
+
 #: Codes that indicate a system problem rather than a data problem. A run producing
 #: many of these should be investigated before its metrics are trusted.
 SYSTEMIC: frozenset[ExceptionCode] = frozenset(
