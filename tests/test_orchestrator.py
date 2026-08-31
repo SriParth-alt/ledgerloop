@@ -22,7 +22,8 @@ from ledgerloop.cascade.orchestrator import parse_tiers, reconcile
 from ledgerloop.cascade.tier0_exact import RULE_AMOUNT_DATE_UNIQUE, RULE_UTR_EXACT
 from ledgerloop.cascade.tier1_tolerant import RULE_TOLERANT
 from ledgerloop.exceptions.codes import ExceptionCode
-from ledgerloop.generate.synth import generate_fixture
+from ledgerloop.generate.chaos import ADVERSARIAL, ChaosFlag
+from ledgerloop.generate.synth import generate_batch, generate_fixture
 from ledgerloop.ingest.loader import load_batch
 from ledgerloop.store.db import connect, initialise, start_run
 
@@ -293,3 +294,42 @@ def test_a_declined_credit_is_removed_from_the_residual(ingested) -> None:
 
     assert declined > 0, "tier 2 declined nothing; the ambiguity path is untested here"
     assert report.unmatched_bank_txns == total - matched - declined
+
+
+def test_planted_decoys_are_never_matched(ingested) -> None:
+    """§12's day-7 done-condition, held as an assertion rather than a one-off check.
+
+    DECOY_SUBSET plants a second set of settlements whose nets mirror a real batch, so
+    two subsets explain one credit exactly. A naive matcher picks one and is wrong half
+    the time; this one must decline both and say why.
+
+    The decoy identities come from `generate_batch`'s in-memory links, not from
+    `truth_links.csv` — the matcher never sees either, and rule 6's boundary is about
+    the shipped package rather than about a test knowing what it planted.
+
+    This exists because the last two defects in this project were both tier-meets-fixture
+    interactions that every unit test passed straight through. Without it, widening a
+    tolerance or changing the pool filter could quietly start matching decoys with the
+    whole suite still green.
+    """
+    conn = ingested
+    reconcile(conn, RUN_ID, tiers=frozenset({0, 1, 2}))
+
+    planted = {
+        link.bank_txn_id
+        for link in generate_batch(settlements=60, seed=42, profile=ADVERSARIAL).links
+        if ChaosFlag.DECOY_SUBSET in link.chaos_tags
+    }
+    assert planted, "the adversarial fixture planted no decoys; this test proves nothing"
+
+    matched = {row[0] for row in conn.execute(text("SELECT bank_txn_id FROM match_records"))}
+    declined = {
+        row[0]
+        for row in conn.execute(
+            text("SELECT bank_txn_id FROM exceptions WHERE reason_code = :code"),
+            {"code": ExceptionCode.AMBIGUOUS_SUBSET.value},
+        )
+    }
+
+    assert planted & matched == set(), "a decoy credit was matched — ADR-003 violated"
+    assert planted <= declined, "a decoy credit was neither matched nor declared ambiguous"

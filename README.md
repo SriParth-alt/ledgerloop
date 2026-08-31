@@ -81,7 +81,7 @@ result.
 
 ```bash
 make setup     # install
-make test      # 266 tests, no API key needed
+make test      # 267 tests, no API key needed
 make lint      # ruff + mypy
 ```
 
@@ -111,7 +111,7 @@ These are load-bearing, not style preferences. They are enforced by tests where 
 
 ## Status
 
-In progress. 266 tests pass.
+In progress. 267 tests pass.
 
 **Implemented and tested:** money arithmetic (integer paise), the MDR/GST/TDS fee model and
 settlement-date math, the Tier 3 LLM output contract, exception reason codes, and the SQL
