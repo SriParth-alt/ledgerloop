@@ -53,9 +53,9 @@ Credits in fixture: 250 (250 explainable; the remainder are orphans and re-posts
 
 | Configuration | Auto-match | Precision | False-match | Recall | Posted | Wrong |
 |---|---|---|---|---|---|---|
-| T0 only | 42.2% | 100.0% | **0.0%** | 42.2% | 78 | 0 |
-| T0 + T1 | 73.0% | 100.0% | **0.0%** | 73.0% | 135 | 0 |
-| T0 + T1 + T2 | 95.1% | 100.0% | **0.0%** | 95.1% | 176 | 0 |
+| T0 only | 41.1% | 100.0% | **0.0%** | 41.1% | 76 | 0 |
+| T0 + T1 | 68.6% | 100.0% | **0.0%** | 68.6% | 127 | 0 |
+| T0 + T1 + T2 | 94.6% | 100.0% | **0.0%** | 94.6% | 175 | 0 |
 | Full cascade | *not yet measured* | *not yet measured* | *not yet measured* | *not yet measured* | — | — |
 | LLM-only baseline | *not yet measured* | *not yet measured* | *not yet measured* | *not yet measured* | — | — |
 
@@ -65,9 +65,9 @@ Credits in fixture: 185 (185 explainable; the remainder are orphans and re-posts
 
 | Configuration | Codes |
 |---|---|
-| T0 only | NO_CANDIDATE 107 |
-| T0 + T1 | NO_CANDIDATE 50 |
-| T0 + T1 + T2 | AMBIGUOUS_SUBSET 5, POOL_TOO_LARGE 4 |
+| T0 only | NO_CANDIDATE 109 |
+| T0 + T1 | NO_CANDIDATE 58 |
+| T0 + T1 + T2 | AMBIGUOUS_SUBSET 5, POOL_TOO_LARGE 5 |
 | Full cascade | *not yet measured* |
 | LLM-only baseline | *not yet measured* |
 
@@ -76,8 +76,8 @@ Credits in fixture: 185 (185 explainable; the remainder are orphans and re-posts
 | Configuration | Auto-match | Precision | False-match | Recall | Posted | Wrong |
 |---|---|---|---|---|---|---|
 | T0 only | 13.3% | 100.0% | **0.0%** | 14.1% | 22 | 0 |
-| T0 + T1 | 29.7% | 100.0% | **0.0%** | 31.4% | 49 | 0 |
-| T0 + T1 + T2 | 66.1% | 100.0% | **0.0%** | 69.9% | 109 | 0 |
+| T0 + T1 | 26.1% | 100.0% | **0.0%** | 27.6% | 43 | 0 |
+| T0 + T1 + T2 | 59.4% | 100.0% | **0.0%** | 62.8% | 98 | 0 |
 | Full cascade | *not yet measured* | *not yet measured* | *not yet measured* | *not yet measured* | — | — |
 | LLM-only baseline | *not yet measured* | *not yet measured* | *not yet measured* | *not yet measured* | — | — |
 
@@ -88,8 +88,8 @@ Credits in fixture: 165 (156 explainable; the remainder are orphans and re-posts
 | Configuration | Codes |
 |---|---|
 | T0 only | DUPLICATE_SUSPECTED 1, NO_CANDIDATE 142 |
-| T0 + T1 | DUPLICATE_SUSPECTED 1, NO_CANDIDATE 115 |
-| T0 + T1 + T2 | AMBIGUOUS_SUBSET 4, DUPLICATE_SUSPECTED 1, NO_CANDIDATE 8, POOL_TOO_LARGE 43 |
+| T0 + T1 | DUPLICATE_SUSPECTED 1, NO_CANDIDATE 121 |
+| T0 + T1 + T2 | AMBIGUOUS_SUBSET 4, DUPLICATE_SUSPECTED 1, NO_CANDIDATE 8, POOL_TOO_LARGE 54 |
 | Full cascade | *not yet measured* |
 | LLM-only baseline | *not yet measured* |
 

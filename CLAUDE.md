@@ -70,28 +70,38 @@ SQLite app); ORMs beyond SQLAlchemy Core; fine-tuning; multi-currency; auth or u
 
 ## Current status
 
-**Day 10 of 14 complete.** 356 tests pass; ruff and mypy clean; CI green. Decisions are logged in
-`DECISIONS.md` (28 entries) — read it before revisiting anything that looks odd, because most of it
+**Day 11 of 14 complete.** 377 tests pass; ruff and mypy clean; CI green. Decisions are logged in
+`DECISIONS.md` (30 entries) — read it before revisiting anything that looks odd, because most of it
 is deliberate.
 
-**Live:** money arithmetic, the fee model, the generator with all twelve chaos injectors, ingest,
-Tiers 0-3, the exception queue with clustering, rule promotion, provenance, and the eval harness.
-`generate`, `reconcile`, `report`, `exceptions` and `evaluate` all work.
+**Live:** money arithmetic, the fee model, the generator with all thirteen chaos injectors, ingest,
+Tiers 0-4, the exception queue with clustering, rule promotion with CLI approval, provenance, and
+the eval harness. `generate`, `reconcile`, `report`, `exceptions`, `resolve` and `evaluate` all work.
 
-**Still stubs:** the FastAPI backend (`serve`).
+**Still stubs:** the FastAPI backend (`serve`). The UI is cut, deliberately — ADR-030. Rule approval
+moved to `ledgerloop resolve` rather than being cut with it.
 
 **The one open gap:** Tier 3 has never run against a real model. The Full cascade and LLM-only rows
 of the §9.2 ablation are *not yet measured*, and the LLM-only control arm is what turns the cascade
 from an assertion into a result. Closing it needs one run with an API key to populate the committed
 response cache — see ADR-026. Tier 3's safety is thoroughly tested; its usefulness is not measured.
 
-**Measured so far:** false-match rate 0.0% at every deterministic arm on every fixture. Adversarial
-auto-match 13.3% / 29.7% / 66.1% across T0 / T0+T1 / T0+T1+T2. Every figure lives in
+**The measured lift from rule promotion is 0.00%, and that is the reported finding** (ADR-029). Tier
+1 is the only tier that recomputes the fee model; Tiers 0 and 2 reconcile against reported nets, so a
+wrong fee model is nearly unobservable and the loop has little to repair. Do not "fix" this by tuning
+a fixture until a delta appears. If you make Tier 1's recomputation authoritative, you are trading a
+real robustness property for a nicer number, and that needs to be an explicit decision.
+
+**Measured so far:** false-match rate 0.0% and precision 100% at every deterministic arm on every
+fixture. Adversarial auto-match 13.3% / 26.1% / 59.4% across T0 / T0+T1 / T0+T1+T2; realistic 41.1% /
+68.6% / 94.6%. Adversarial fell from 66.1% on day 10 because day 11 made the fixture *harder* — glued
+UTR prefixes and a fee-drift merchant — not because a tier regressed. Every figure lives in
 `results/metrics.md`, which is generated — never hand-write one into the README.
 
-**Calendar:** the build started 24 Aug, so §12's dates run two days optimistic. Day 12's UI is the
-agreed cut if anything slips (§12 buffer policy); meet-in-the-middle was already dropped on measured
-evidence (ADR-022). If the UI goes, rule approval has to move to the CLI.
+**Calendar:** the build started 24 Aug, so §12's dates run two days optimistic. Day 12's UI was the
+agreed cut and has been taken (ADR-030); day 13 is the write-up, ARCHITECTURE.md and a clean-clone
+test; day 14 is the recording and submission. Meet-in-the-middle was dropped earlier on measured
+evidence (ADR-022).
 
 **Sharp edges before you touch the cascade:** ADR-018 and ADR-027 both record defects that every
 passing unit test missed, because unit tests over hand-built rows cannot see a tier meeting a chaos

@@ -110,11 +110,11 @@ def _looks_like_reference(token: str) -> bool:
     )
 
 
-def utr_candidates(narration: str) -> frozenset[str]:
+def utr_candidates(narration: str, *, rules: RuleStore = EMPTY_STORE) -> frozenset[str]:
     """Every reference-shaped token a narration might be hiding."""
     tokens = set()
     for field in FIELD_SPLIT.split(narration):
-        normalised = normalise_utr(field)
+        normalised = normalise_utr(field, rules=rules)
         if _looks_like_reference(normalised):
             tokens.add(normalised)
     return frozenset(tokens)
@@ -133,20 +133,23 @@ def _unique_by(pairs: list[tuple[object, str]]) -> dict[object, str]:
 
 
 def _match_on_reference(
-    bank_txns: Sequence[BankRow], settlements: Sequence[SettlementRow]
+    bank_txns: Sequence[BankRow],
+    settlements: Sequence[SettlementRow],
+    rules: RuleStore = EMPTY_STORE,
 ) -> list[ProposedMatch]:
     settlement_by_utr = _unique_by(
         [
-            (normalise_utr(row.utr), row.settlement_id)
+            (normalise_utr(row.utr, rules=rules), row.settlement_id)
             for row in settlements
-            if row.utr and normalise_utr(row.utr)
+            if row.utr and normalise_utr(row.utr, rules=rules)
         ]
     )
 
     bank_pairs: list[tuple[object, str]] = []
     for row in bank_txns:
         bank_pairs.extend(
-            (token, row.bank_txn_id) for token in utr_candidates(row.narration)
+            (token, row.bank_txn_id)
+            for token in utr_candidates(row.narration, rules=rules)
         )
     bank_by_utr = _unique_by(bank_pairs)
 
@@ -249,7 +252,10 @@ def _as_iso(value: object) -> str:
 
 
 def match_tier0(
-    bank_txns: Sequence[BankRow], settlements: Sequence[SettlementRow]
+    bank_txns: Sequence[BankRow],
+    settlements: Sequence[SettlementRow],
+    *,
+    rules: RuleStore = EMPTY_STORE,
 ) -> list[ProposedMatch]:
     """Match by exact reference, then by unique amount-and-date over what is left.
 
@@ -257,7 +263,7 @@ def match_tier0(
     an amount coincidence is not. Running it first also shrinks the set the weaker rule
     may draw from.
     """
-    matches = _match_on_reference(bank_txns, settlements)
+    matches = _match_on_reference(bank_txns, settlements, rules)
 
     claimed_bank = {match.bank_txn_id for match in matches}
     claimed_settlements = {sid for match in matches for sid in match.settlement_ids}

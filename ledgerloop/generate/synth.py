@@ -32,6 +32,8 @@ from pathlib import Path
 from random import Random
 
 from ledgerloop.generate.chaos import (
+    FEE_DRIFT_BPS,
+    FEE_DRIFT_CUSTOMER,
     PROFILES,
     ChaosFlag,
     ChaosProfile,
@@ -42,7 +44,12 @@ from ledgerloop.generate.chaos import (
     noisy_narration,
     paise_drift,
 )
-from ledgerloop.generate.fee_model import SETTLEMENT_FEE_MODEL, FeeModel, PaymentMethod
+from ledgerloop.generate.fee_model import (
+    SETTLEMENT_FEE_MODEL,
+    FeeModel,
+    MethodPricing,
+    PaymentMethod,
+)
 from ledgerloop.ingest.schemas import BankRow, InvoiceRow, SettlementRow
 
 INVOICES_FILE = "ledger_invoices.csv"
@@ -165,6 +172,29 @@ def _capture_window(settlements: int) -> int:
     return max(3, min(20, settlements // 6))
 
 
+def drifted_model(fee_model: FeeModel, drift_bps: int = FEE_DRIFT_BPS) -> FeeModel:
+    """The fee model as it really is for the drifted merchant, not as we configured it.
+
+    Every rate moves by the same margin, because a merchant negotiates a schedule rather
+    than a per-method accident. That is what makes the drift *learnable*: one resolution
+    reveals the margin, and one rule repairs every settlement it touches.
+    """
+    return FeeModel(
+        pricing={
+            method: MethodPricing(
+                rate_bps=pricing.rate_bps + drift_bps,
+                flat_paise=pricing.flat_paise,
+                cap_paise=pricing.cap_paise,
+            )
+            for method, pricing in fee_model.pricing.items()
+        },
+        gst_bps=fee_model.gst_bps,
+        tds_bps=fee_model.tds_bps,
+        settlement_lag_days=fee_model.settlement_lag_days,
+        holidays=fee_model.holidays,
+    )
+
+
 def _fee_components(
     working: _Working, profile: ChaosProfile, fee_model: FeeModel
 ) -> dict[str, int]:
@@ -176,7 +206,17 @@ def _fee_components(
             "tds_paise": 0,
             "net_paise": working.gross_paise,
         }
-    return fee_model.breakdown(working.gross_paise, working.method)
+
+    # The drifted merchant's settlements are computed with the rate that actually
+    # applies. The report and the bank agree; it is our model that is wrong, which is
+    # precisely the situation §8 describes and the one rule promotion exists to repair.
+    effective = (
+        drifted_model(fee_model)
+        if profile.enabled(ChaosFlag.FEE_DRIFT)
+        and working.customer_name == FEE_DRIFT_CUSTOMER
+        else fee_model
+    )
+    return effective.breakdown(working.gross_paise, working.method)
 
 
 def _build_settlements(

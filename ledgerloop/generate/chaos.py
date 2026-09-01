@@ -70,6 +70,19 @@ class ChaosFlag(StrEnum):
     DECOY_SUBSET = "DECOY_SUBSET"
     """A second valid subset sums to the same credit. Must produce AMBIGUOUS_SUBSET."""
 
+    FEE_DRIFT = "FEE_DRIFT"
+    """This merchant's real MDR differs from the one we configured.
+
+    The odd one out among the twelve, and deliberately so. Every other injector corrupts
+    how a fact was *written down*; this one makes the system's own model of the world
+    wrong. Nothing else in §5.5 does that, which is why §8's strongest claim — a wrong fee
+    model surfaces as an exception cluster that rule promotion fixes wholesale — had
+    nothing to demonstrate itself against until this existed.
+
+    The settlement report and the bank agree with each other. It is Tier 1's
+    recomputation that disagrees with both, so correct matches are declined and fall
+    through. A promoted FEE_OVERRIDE teaches the real rate and the whole class returns."""
+
 
 #: Injectors that change which rows exist, and therefore change ground truth.
 STRUCTURAL_FLAGS: frozenset[ChaosFlag] = frozenset(
@@ -150,6 +163,27 @@ _SUFFIX_EXPANSIONS = {"PVT": "Private", "LTD": "Limited", "PVT.": "Private", "LT
 #: Bounded so the mangled token stays inside Tier 1's Levenshtein budget.
 _MAX_TRUNCATION = 2
 
+#: Instrument codes some banks run straight into the reference with no separator. These
+#: are deliberately *not* in `tier0.BANK_PREFIXES`: they are the thing the system has to
+#: be taught, and a normaliser that already knew them would leave the promotion loop with
+#: nothing to learn.
+_GLUED_PREFIXES = ("MMTCR", "TRFCR", "CMSCR")
+
+#: Share of noisy narrations that glue the prefix on. Low enough to stay a minority
+#: phenomenon, high enough that resolving a handful of exceptions reveals the pattern.
+_GLUED_PREFIX_RATE = 0.30
+
+#: How far this merchant's real MDR sits from the configured one, in basis points.
+#: A whole percentage point: large enough to fall outside Tier 1's 0.5% band on every
+#: settlement rather than only the large ones, so the failure is a clean class rather
+#: than a size-dependent smear.
+FEE_DRIFT_BPS = 100
+
+#: The customer whose pricing we have wrong. One merchant, not a random scatter — §8's
+#: claim is about a *systematic* wrong assumption, and a drift sprinkled at random would
+#: be indistinguishable from noise and would generalise to nothing.
+FEE_DRIFT_CUSTOMER = "NIMBUS TEXTILES LTD"
+
 
 def clean_narration(utr: str | None, name: str, branch: str) -> str:
     """The narration a well-behaved bank would write. Chaos degrades this."""
@@ -172,6 +206,17 @@ def noisy_narration(rng: Random, utr: str | None, name: str, amount_paise: int) 
     if rng.random() < 0.30 and len(token) > 6:
         cut = rng.randrange(3, len(token) - 2)
         token = f"{token[:cut]}-{token[cut:]}"
+
+    # §5.5 lists "UTR prefixed" among the manglings, and this is what that means: the
+    # bank's instrument code runs straight into the reference with no separator. Rendering
+    # it as its own delimited field — which this did until day 11 — lets the tokeniser
+    # split it off for free, so the phenomenon never actually reaches the matcher.
+    #
+    # It is also the only failure class in the fixtures that a promoted rule can repair,
+    # which is what makes §9.3's lift measurable rather than always zero.
+    glued = rng.random() < _GLUED_PREFIX_RATE and token
+    if glued:
+        token = f"{rng.choice(_GLUED_PREFIXES)}{token}"
 
     parts = [rng.choice(_NARRATION_PREFIXES), rng.choice(_NARRATION_BANKS), token, name]
     if rng.random() < 0.25:

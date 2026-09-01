@@ -332,14 +332,24 @@ def test_an_unknown_name_has_no_alias(tmp_path: Path) -> None:
     assert load_rules(tmp_path / "store.yaml").alias_for("SOMEONE ELSE") is None
 
 
+def _sample_value(kind: RuleKind) -> str:
+    """A valid value per kind. Each has its own shape, and a round-trip test that wrote
+    a shape the loader cannot parse would report a storage bug that is really a test bug.
+    """
+    if kind is RuleKind.COUNTERPARTY_ALIAS:
+        return "A=B"
+    if kind is RuleKind.FEE_OVERRIDE:
+        return "ACME RETAIL PVT LTD=250"
+    return "WXYZ"
+
+
 @pytest.mark.parametrize("kind", list(RuleKind))
 def test_every_rule_kind_survives_a_write_and_read(tmp_path: Path, kind: RuleKind) -> None:
     """A kind that cannot round-trip would be silently dropped on the next run, and the
     lift measured on day 11 would decay for no visible reason."""
     store_path = tmp_path / f"{kind.value}.yaml"
     promote(
-        Rule(kind=kind, value="A=B" if kind is RuleKind.COUNTERPARTY_ALIAS else "WXYZ",
-             description="round trip", learned_from="BNK1"),
+        Rule(kind=kind, value=_sample_value(kind), description='round trip', learned_from='BNK1'),
         store_path,
         approved_by="analyst",
     )

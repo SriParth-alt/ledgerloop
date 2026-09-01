@@ -46,9 +46,10 @@ from rapidfuzz.fuzz import token_set_ratio
 from ledgerloop.audit.provenance import MatchEvidence, ProposedMatch
 from ledgerloop.cascade.tier0_exact import FIELD_SPLIT, normalise_utr, utr_candidates
 from ledgerloop.config import DEFAULT_MATCH_CONFIG, MatchConfig
-from ledgerloop.generate.fee_model import SETTLEMENT_FEE_MODEL, FeeModel
+from ledgerloop.generate.fee_model import SETTLEMENT_FEE_MODEL, FeeModel, MethodPricing
 from ledgerloop.ingest.schemas import BankRow, SettlementRow
 from ledgerloop.money import within_tolerance
+from ledgerloop.rules.promote import EMPTY_STORE, RuleStore
 
 RULE_TOLERANT = "T1-TOLERANT"
 
@@ -69,13 +70,43 @@ class Tier1Score:
     evidence: tuple[MatchEvidence, ...]
 
 
-def expected_net_paise(settlement: SettlementRow, *, fee_model: FeeModel) -> int:
+def expected_net_paise(
+    settlement: SettlementRow,
+    *,
+    fee_model: FeeModel,
+    rules: RuleStore = EMPTY_STORE,
+) -> int:
     """What the fee model says should have reached the bank for this settlement.
 
     Recomputed from ``gross`` rather than read from the settlement's own
-    ``net_amount_paise``. Reading the reported figure would be trusting the document
-    we are supposed to be checking; recomputing is what makes this a reconciliation.
+    ``net_amount_paise``. Reading the reported figure would be trusting the document we
+    are supposed to be checking; recomputing is what makes this a reconciliation.
+
+    An approved ``FEE_OVERRIDE`` shifts the configured rate for that customer by the
+    learned margin. A margin rather than an absolute rate, because a merchant negotiates
+    a whole schedule: learning '140 bps' from a debit-card settlement and applying it to
+    their UPI settlements would be wrong by the difference between the two, and would
+    break matches that previously worked.
+
+    This is the point of the promotion loop: our model of a merchant's pricing can be
+    wrong, it declines every one of their settlements when it is, and a human who
+    resolves one of them can correct the class.
     """
+    drift = rules.fee_drift_for(settlement.customer_name)
+    if drift is not None:
+        pricing = fee_model.pricing[settlement.method]
+        corrected = FeeModel(
+            pricing={**fee_model.pricing, settlement.method: MethodPricing(
+                rate_bps=pricing.rate_bps + drift,
+                flat_paise=pricing.flat_paise,
+                cap_paise=pricing.cap_paise,
+            )},
+            gst_bps=fee_model.gst_bps,
+            tds_bps=fee_model.tds_bps,
+            settlement_lag_days=fee_model.settlement_lag_days,
+            holidays=fee_model.holidays,
+        )
+        return corrected.net_paise(settlement.gross_amount_paise, settlement.method)
     return fee_model.net_paise(settlement.gross_amount_paise, settlement.method)
 
 
@@ -85,6 +116,7 @@ def amount_agrees(
     *,
     fee_model: FeeModel,
     config: MatchConfig,
+    rules: RuleStore = EMPTY_STORE,
 ) -> bool:
     """True when the credit lands inside the fee-model tolerance band.
 
@@ -93,7 +125,7 @@ def amount_agrees(
     """
     return within_tolerance(
         credit_paise,
-        expected_net_paise(settlement, fee_model=fee_model),
+        expected_net_paise(settlement, fee_model=fee_model, rules=rules),
         abs_paise=config.amount_tolerance_paise,
         rel_bps=config.amount_tolerance_bps,
     )
@@ -160,6 +192,7 @@ def score_candidate(
     *,
     fee_model: FeeModel,
     config: MatchConfig,
+    rules: RuleStore = EMPTY_STORE,
 ) -> Tier1Score | None:
     """Score one pairing, or return ``None`` if it fails a gate.
 
@@ -168,13 +201,13 @@ def score_candidate(
     outvoted by a good name.
     """
     if not amount_agrees(
-        bank_txn.credit_paise, settlement, fee_model=fee_model, config=config
+        bank_txn.credit_paise, settlement, fee_model=fee_model, config=config, rules=rules
     ):
         return None
     if not date_in_window(bank_txn, settlement, fee_model=fee_model, config=config):
         return None
 
-    expected = expected_net_paise(settlement, fee_model=fee_model)
+    expected = expected_net_paise(settlement, fee_model=fee_model, rules=rules)
     score = config.tier1_score_amount_and_date
     evidence = [
         MatchEvidence(
@@ -228,6 +261,7 @@ def match_tier1(
     *,
     fee_model: FeeModel = SETTLEMENT_FEE_MODEL,
     config: MatchConfig = DEFAULT_MATCH_CONFIG,
+    rules: RuleStore = EMPTY_STORE,
 ) -> list[ProposedMatch]:
     """Score every reconcilable pairing, then assign the unambiguous ones."""
     by_bank: dict[str, list[Tier1Score]] = {}
@@ -237,7 +271,7 @@ def match_tier1(
             for settlement in settlements
             if (
                 scored := score_candidate(
-                    bank_txn, settlement, fee_model=fee_model, config=config
+                    bank_txn, settlement, fee_model=fee_model, config=config, rules=rules
                 )
             )
             is not None

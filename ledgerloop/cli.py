@@ -32,6 +32,12 @@ from ledgerloop.generate.synth import (
     generate_fixture,
 )
 from ledgerloop.ingest.loader import load_batch
+from ledgerloop.rules.promote import (
+    attach_promoted_rule,
+    promote,
+    propose_rule,
+    record_resolution,
+)
 from ledgerloop.store.db import DEFAULT_DB_PATH, connect, initialise, run_exists, start_run
 
 app = typer.Typer(
@@ -178,6 +184,70 @@ def exceptions(
             f"{item.code.value:<24} {item.bank_txn_id or '-'}"
         )
         console.print(f"      {item.suggested_action}")
+
+
+@app.command()
+def resolve(
+    run_id: str = typer.Option(..., help="Which run the exception belongs to."),
+    exception_id: str = typer.Option(..., help="From `ledgerloop exceptions`."),
+    settlement_id: str = typer.Option(..., help="The settlement that explains this credit."),
+    resolved_by: str = typer.Option("analyst", help="Who decided."),
+    approve: bool = typer.Option(False, help="Persist the proposed rule."),
+    store: Path = typer.Option(Path("ledgerloop/rules/store.yaml")),
+    db: Path = typer.Option(DEFAULT_DB_PATH),
+) -> None:
+    """Resolve an exception, and optionally approve the rule it generalises to.
+
+    Approval is deliberately a second flag rather than implied. A resolution records what
+    a human decided about one record; a rule fires forever on batches nobody has looked
+    at. ADR-004 makes that approval the only gate between the two, and a command that did
+    both at once would make the gate a formality.
+
+    This is the surface that replaced the UI when day 12 was cut (ADR-030).
+    """
+    with connect(db) as conn:
+        if not run_exists(conn, run_id):
+            console.print(f"[red]no such run[/] {run_id!r}")
+            raise typer.Exit(code=2)
+        try:
+            resolution = record_resolution(
+                conn,
+                run_id,
+                exception_id,
+                settlement_id=settlement_id,
+                resolved_by=resolved_by,
+            )
+        except KeyError as error:
+            console.print(f"[red]{error}[/]")
+            raise typer.Exit(code=2) from None
+
+        console.print(
+            f"[green]resolved[/] {exception_id} -> {settlement_id} by {resolved_by}"
+        )
+
+        proposal = propose_rule(resolution)
+        if proposal is None:
+            console.print(
+                "  no generalisable rule — this resolution looks like a one-off, and "
+                "inventing a rule from it would fire on the next batch"
+            )
+            return
+
+        console.print()
+        console.print(f"[bold]Proposed rule[/] ({proposal.kind.value})")
+        console.print(f"  {proposal.description}")
+        console.print(f"  machine form: {proposal.value}")
+
+        if not approve:
+            console.print(
+                "[yellow]not approved[/] — nothing was persisted. Re-run with "
+                "--approve to promote it."
+            )
+            return
+
+        promote(proposal, store, approved_by=resolved_by)
+        attach_promoted_rule(conn, exception_id, proposal.value)
+        console.print(f"[green]promoted[/] to {store} — it applies from the next run")
 
 
 @app.command()

@@ -52,6 +52,7 @@ from ledgerloop.generate.fee_model import SETTLEMENT_FEE_MODEL, FeeModel
 from ledgerloop.ingest.schemas import BankRow, SettlementRow
 from ledgerloop.llm.adapter import LLMAdapter
 from ledgerloop.llm.cache import ResponseCache
+from ledgerloop.rules.promote import EMPTY_STORE, RuleStore
 from ledgerloop.store.db import (
     finish_run,
     load_bank_txns,
@@ -126,6 +127,7 @@ def reconcile(
     no_llm: bool = False,
     adapter: LLMAdapter | None = None,
     cache: ResponseCache | None = None,
+    rules: RuleStore | None = None,
     on_tier: Callable[[TierOutcome], None] | None = None,
 ) -> ReconcileReport:
     """Execute the requested tiers in order, posting what each one resolves."""
@@ -150,6 +152,7 @@ def reconcile(
             no_llm=no_llm,
             adapter=adapter,
             cache=cache,
+            rules=rules if rules is not None else EMPTY_STORE,
         )
         for match in result.matches:
             record_match(conn, run_id, match)
@@ -231,6 +234,7 @@ def _run_tier(
     no_llm: bool,
     adapter: LLMAdapter | None = None,
     cache: ResponseCache | None = None,
+    rules: RuleStore = EMPTY_STORE,
 ) -> tuple[TierResult, tuple[int, int, int]]:
     """Dispatch to a tier, returning its result and its model counters.
 
@@ -241,9 +245,15 @@ def _run_tier(
     """
     empty = (0, 0, 0)
     if tier == 0:
-        return TierResult(matches=match_tier0(bank_txns, settlements), exceptions=[]), empty
+        return (
+            TierResult(matches=match_tier0(bank_txns, settlements, rules=rules), exceptions=[]),
+            empty,
+        )
     if tier == 1:
-        return TierResult(matches=match_tier1(bank_txns, settlements), exceptions=[]), empty
+        return (
+            TierResult(matches=match_tier1(bank_txns, settlements, rules=rules), exceptions=[]),
+            empty,
+        )
     if tier == 2:
         return match_tier2(bank_txns, settlements), empty
     if tier == 3:

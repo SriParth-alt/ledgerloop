@@ -106,7 +106,7 @@ These are load-bearing, not style preferences. They are enforced by tests where 
 
 ## Status
 
-In progress. 356 tests pass.
+In progress. 377 tests pass.
 
 **Implemented and tested:** money arithmetic (integer paise), the MDR/GST/TDS fee model and
 settlement-date math, the Tier 3 LLM output contract, exception reason codes, and the SQL
@@ -131,10 +131,23 @@ match counted correct only when its settlement set matches exactly. `make demo` 
 Tier 4 — every unmatched credit swept into the queue with a reason code and a suggested
 action, clustered so twelve rows sharing a code read as one wrong assumption rather than
 twelve problems. Rule promotion — a human resolution generalised into an approved rule
-that changes what the next run matches.
+that changes what the next run matches, approved through `ledgerloop resolve`, which
+prints the proposed rule and persists nothing until `--approve` is passed.
 
 **Stubbed, with implementation notes:** the API. `serve` exits non-zero rather than
-pretending to run.
+pretending to run. The UI is a deliberate cut under §12's buffer policy, and rule approval
+moved to the CLI rather than going with it ([ADR-030](DECISIONS.md)).
+
+**The promotion loop was measured, and the lift is 0.00%.** Not an unmeasured claim and
+not a defect: Tier 1 is the only tier that recomputes the fee model, while Tiers 0 and 2
+reconcile against the net the gateway actually reported. So a wrong fee model — the error
+class rule promotion exists to repair — is very nearly unobservable here, because the tier
+that declines has its work picked up by the tier beneath it. That is a robustness property
+worth having and the honest reason the spec's "wrong fee model surfaces as an exception
+cluster" does not hold in this cascade. The loop is real, tested end to end, and never
+lowers the match rate; what it does not do on these fixtures is raise it.
+[ADR-029](DECISIONS.md) records how that number was arrived at, including the earlier
+inference that promoted five approved rules and made the cascade *worse*.
 
 **Tier 3 is tested but not measured.** Every rejection path is covered — a fabricated
 identifier discards the whole response, a proposal whose arithmetic fails is rejected at
