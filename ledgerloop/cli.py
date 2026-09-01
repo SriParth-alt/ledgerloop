@@ -24,6 +24,7 @@ from rich.console import Console
 from ledgerloop.cascade.orchestrator import TierOutcome, parse_tiers
 from ledgerloop.cascade.orchestrator import reconcile as run_cascade
 from ledgerloop.config import DEFAULT_MATCH_CONFIG
+from ledgerloop.exceptions.clustering import cluster, open_exceptions
 from ledgerloop.generate.synth import (
     BANK_FILE,
     INVOICES_FILE,
@@ -137,15 +138,46 @@ def reconcile(
 def exceptions(
     run_id: str = typer.Option(...),
     limit: int = typer.Option(20),
+    db: Path = typer.Option(DEFAULT_DB_PATH),
 ) -> None:
     """List open exceptions, highest rupee value at risk first.
 
-    TODO(day-10): wire to ledgerloop.exceptions.clustering. Sort by value, and show
-    the reason-code clustering — twelve exceptions sharing a code and a merchant is
-    one wrong assumption, not twelve problems.
+    The clustering comes first deliberately. Twelve exceptions sharing a reason code is
+    one wrong assumption, not twelve problems, and an associate who reads the list before
+    the pattern will work through twelve rows to discover that once.
     """
-    console.print(f"[yellow]not implemented[/] — exceptions run={run_id} limit={limit}")
-    raise typer.Exit(code=1)
+    with connect(db) as conn:
+        if not run_exists(conn, run_id):
+            console.print(f"[red]no such run[/] {run_id!r}")
+            raise typer.Exit(code=2)
+        items = open_exceptions(conn, run_id)
+
+    if not items:
+        console.print(f"[green]no open exceptions[/] for run {run_id}")
+        return
+
+    total = sum(item.value_at_risk_paise for item in items)
+    console.print(
+        f"[bold]{len(items)} open exception(s)[/], Rs {total / 100:,.2f} at risk"
+    )
+    console.print()
+
+    console.print("[bold]Patterns[/]")
+    for group in cluster(items):
+        console.print(
+            f"  [bold]{group.code.value}[/]  x{group.count}  "
+            f"Rs {group.value_at_risk_paise / 100:,.2f}"
+        )
+        console.print(f"    {group.diagnosis}")
+
+    console.print()
+    console.print(f"[bold]Queue[/] — highest value at risk first (top {limit})")
+    for item in items[:limit]:
+        console.print(
+            f"  Rs {item.value_at_risk_paise / 100:>13,.2f}  "
+            f"{item.code.value:<24} {item.bank_txn_id or '-'}"
+        )
+        console.print(f"      {item.suggested_action}")
 
 
 @app.command()

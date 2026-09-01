@@ -902,3 +902,86 @@ and the ablation completes without a key thereafter.
 
 Until then the honest statement is that Tier 3's *safety* is thoroughly tested and its *usefulness* is
 not measured at all. Those are different claims and the write-up should not blur them.
+
+---
+
+## ADR-027 — Every unmatched credit is swept into the queue with a reason code
+
+**Date:** 2026-09-01
+**Status:** Accepted
+
+**Context:** §6 says every unresolved record lands in the exception queue with a machine-readable
+reason code. That was false from day 4 until today. Exceptions only existed where some tier had
+actively objected — an ambiguous subset, an oversized pool, a duplicate. A credit that simply reached
+the end unmatched left **no trace at all**: counted in the residual, present in no exception row,
+invisible to anyone reading the queue. On the adversarial fixture at 250 records that was 56 credits;
+on the T0-only ablation arm it was 143.
+
+The exception distribution in `results/metrics.md` therefore reported one exception against 143
+unexplained credits, which is not a small inaccuracy — it is the report describing a different run
+from the one that happened.
+
+**Decision:** After every tier has run, the orchestrator sweeps the residual and gives each remaining
+credit a reason code. `ORPHAN_CREDIT` when no settlement fell in its window at all; `NO_CANDIDATE`
+when settlements were there and none reconciled.
+
+**Alternatives considered:**
+- **Leave the residual as a count.** Lost: "unmatched: 56" tells an associate how much work remains
+  and nothing about what any of it is. §6 asks for a reason code and a suggested action precisely
+  because a queue without them is a number, not a queue.
+- **Raise an exception per unmatched settlement as well as per credit.** Lost: most unmatched
+  settlements on the adversarial fixture are `refunded` or `disputed` and produced no credit on
+  purpose. Filing them would flood the queue with non-problems, which is the opposite of the
+  diagnostic instrument §8 describes.
+
+**Consequences:** The distinction between the two codes is drawn only from evidence the matcher
+actually holds, and that limit is worth stating: **the matcher cannot know a credit is an orphan.**
+Only ground truth knows that. An empty candidate window is what an out-of-band transfer looks like
+from the inside, and the code is an inference from absence rather than a claim of fact.
+
+One correction was needed mid-implementation and it is instructive. The first version built the pool
+from *unclaimed* settlements, so a credit whose candidates had been consumed by other credits was
+labelled an orphan. That is wrong — the counterpart existed, we simply spent it elsewhere — and it
+would have reported ordinary contention as an out-of-band transfer. The pool is now built over every
+settlement.
+
+The ablation's exception distribution changes as a result, and `results/metrics.md` was regenerated.
+Auto-match rates and false-match rates are untouched; the sweep matches nothing. What changed is that
+each arm now accounts for all 165 credits instead of 23 of them.
+
+---
+
+## ADR-028 — Approved rules reach into Tier 0, which changes what "deterministic" means
+
+**Date:** 2026-09-01
+**Status:** Accepted
+
+**Context:** The rule promotion loop is only worth building if a promoted rule changes what the
+cascade does on the next run — §9.3 asks for a measured before-and-after delta, and a loop that
+cannot move a number is a UI flourish. That means the rule store has to be consulted by a tier. The
+natural place for a learned instrument prefix is `tier0_exact.normalise_utr`, which is also the
+function feeding the tier that posts at **confidence 1.0**.
+
+**Decision:** `normalise_utr` takes an optional `RuleStore`, defaulting to empty. Approved prefixes
+are appended to the built-in list and are subject to exactly the same `MIN_REFERENCE_LENGTH` floor.
+
+**Alternatives considered:**
+- **Apply rules only in Tier 1.** Safer — Tier 1 posts at 0.99 and corroborates with a fee-model
+  recomputation — but a learned prefix genuinely belongs to normalisation, and duplicating the
+  normaliser so one copy could learn would be worse than the risk it avoids.
+- **Let rules bypass the length floor**, on the grounds that a human approved them. Refused. A rule
+  approved once fires forever, on batches nobody reviewed. The floor exists because Tier 0 asserts
+  certainty, and human approval of a *rule* is not human approval of every future *match* it makes.
+
+**Consequences:** This is the point where a claim in the write-up has to become more careful. Tiers
+0–2 are still deterministic, but they are deterministic **given a rule store** rather than
+deterministic as fixed code. A run is still reproducible from the repository alone, because
+`store.yaml` is committed — that is why it ships as `rules: []`, so a reviewer can diff it after a
+demo and see exactly what was learned. But "the same code always produces the same matches" is no
+longer the right sentence; "the same code and the same approved rules" is.
+
+Two rule kinds ship, not twelve: an unrecognised instrument prefix and a counterparty spelling. §9.3
+asks for a measured delta, not coverage, and two kinds that visibly work demonstrate the loop better
+than a dozen that each fire once. The cost is that a resolution whose lesson is neither of those
+yields no rule — correctly, since inventing one from a single example is how a store fills with
+overfitted guesses.

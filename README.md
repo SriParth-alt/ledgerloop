@@ -81,7 +81,7 @@ result.
 
 ```bash
 make setup     # install
-make test      # 327 tests, no API key needed
+make test      # 356 tests, no API key needed
 make demo      # generate → reconcile → report
 make eval      # full ablation, writes results/metrics.md
 ```
@@ -106,7 +106,7 @@ These are load-bearing, not style preferences. They are enforced by tests where 
 
 ## Status
 
-In progress. 327 tests pass.
+In progress. 356 tests pass.
 
 **Implemented and tested:** money arithmetic (integer paise), the MDR/GST/TDS fee model and
 settlement-date math, the Tier 3 LLM output contract, exception reason codes, and the SQL
@@ -128,9 +128,13 @@ confidence threshold. The eval harness — scoring against generator ground trut
 match counted correct only when its settlement set matches exactly. `make demo` and
 `make eval` both work.
 
-**Stubbed, with implementation notes:** the exception queue and clustering, rule
-promotion, and the API. `exceptions` and `serve` exit non-zero rather than pretending to
-run.
+Tier 4 — every unmatched credit swept into the queue with a reason code and a suggested
+action, clustered so twelve rows sharing a code read as one wrong assumption rather than
+twelve problems. Rule promotion — a human resolution generalised into an approved rule
+that changes what the next run matches.
+
+**Stubbed, with implementation notes:** the API. `serve` exits non-zero rather than
+pretending to run.
 
 **Tier 3 is tested but not measured.** Every rejection path is covered — a fabricated
 identifier discards the whole response, a proposal whose arithmetic fails is rejected at
@@ -143,8 +147,8 @@ then the Full cascade and LLM-only rows of the ablation stay *not yet measured*.
 fixtures. See [`results/metrics.md`](results/metrics.md) — that file is generated, and no
 figure from it is reproduced by hand anywhere in this README.
 
-No metric has been measured yet. See `PROJECT_SPEC.md` §12 for the day-by-day plan and
-[`DECISIONS.md`](DECISIONS.md) for why the architecture is shaped this way.
+See `PROJECT_SPEC.md` §12 for the day-by-day plan and [`DECISIONS.md`](DECISIONS.md) for
+why the architecture is shaped this way.
 
 ## Lineage
 

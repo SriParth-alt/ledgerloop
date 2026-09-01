@@ -70,27 +70,30 @@ SQLite app); ORMs beyond SQLAlchemy Core; fine-tuning; multi-currency; auth or u
 
 ## Current status
 
-**Day 5 of 14 complete.** 241 tests pass; ruff and mypy clean; CI green. Decisions are logged in
-`DECISIONS.md` (18 entries) — read it before revisiting anything that looks odd, because most of it
+**Day 10 of 14 complete.** 356 tests pass; ruff and mypy clean; CI green. Decisions are logged in
+`DECISIONS.md` (28 entries) — read it before revisiting anything that looks odd, because most of it
 is deliberate.
 
-**Live:** money arithmetic, the fee model and settlement-date math, the generator with all twelve
-chaos injectors, ingest (SHA-256 fingerprinting, idempotency, quarantine, `DUPLICATE_SUSPECTED`),
-Tier 0, Tier 1, provenance records, and the orchestrator. `ledgerloop generate` and
-`ledgerloop reconcile` work end to end, with live per-tier counts and `--tiers` ablation.
+**Live:** money arithmetic, the fee model, the generator with all twelve chaos injectors, ingest,
+Tiers 0-3, the exception queue with clustering, rule promotion, provenance, and the eval harness.
+`generate`, `reconcile`, `report`, `exceptions` and `evaluate` all work.
 
-**Still stubs:** tiers 2 and 3, the exception queue and clustering, rule promotion, the API, and
-`eval/`. `report` and `evaluate` exit non-zero rather than pretending to run.
+**Still stubs:** the FastAPI backend (`serve`).
 
-**Next:** Tier 2 subset-sum (days 6–7), then the eval harness (day 8). Build the harness before
-Tier 3, as §12 says — no tier's contribution is known until it is measured.
+**The one open gap:** Tier 3 has never run against a real model. The Full cascade and LLM-only rows
+of the §9.2 ablation are *not yet measured*, and the LLM-only control arm is what turns the cascade
+from an assertion into a result. Closing it needs one run with an API key to populate the committed
+response cache — see ADR-026. Tier 3's safety is thoroughly tested; its usefulness is not measured.
 
-**Calendar:** the build started 24 Aug, not §12's 22 Aug, so every date in that table is two days
-optimistic and a straight 14-day run would end 6 Sep — past the 5 Sep close. Two cuts are agreed to
-absorb it: the UI drops to a static HTML report (§12 buffer policy) and Tier 2 ships bounded DP
-without meet-in-the-middle (§14.2). There is no remaining slack.
+**Measured so far:** false-match rate 0.0% at every deterministic arm on every fixture. Adversarial
+auto-match 13.3% / 29.7% / 66.1% across T0 / T0+T1 / T0+T1+T2. Every figure lives in
+`results/metrics.md`, which is generated — never hand-write one into the README.
 
-**Sharp edges worth knowing before you touch the cascade:** ADR-018 records a 25% false-match class
-in Tier 0 that sixteen passing unit tests could not see, because every one of them constructed a 1:1
-case — it only appeared when a tier met a chaos injector on a real fixture. ADR-015 records a
-related risk that is still unmeasured. Expect Tier 2 to have the same blind spot until day 8.
+**Calendar:** the build started 24 Aug, so §12's dates run two days optimistic. Day 12's UI is the
+agreed cut if anything slips (§12 buffer policy); meet-in-the-middle was already dropped on measured
+evidence (ADR-022). If the UI goes, rule approval has to move to the CLI.
+
+**Sharp edges before you touch the cascade:** ADR-018 and ADR-027 both record defects that every
+passing unit test missed, because unit tests over hand-built rows cannot see a tier meeting a chaos
+injector on a real fixture. Measure against a fixture before believing a tier works. ADR-028 notes
+that Tiers 0-2 are now deterministic *given a rule store* rather than as fixed code.

@@ -65,8 +65,8 @@ Credits in fixture: 185 (185 explainable; the remainder are orphans and re-posts
 
 | Configuration | Codes |
 |---|---|
-| T0 only | — |
-| T0 + T1 | — |
+| T0 only | NO_CANDIDATE 107 |
+| T0 + T1 | NO_CANDIDATE 50 |
 | T0 + T1 + T2 | AMBIGUOUS_SUBSET 5, POOL_TOO_LARGE 4 |
 | Full cascade | *not yet measured* |
 | LLM-only baseline | *not yet measured* |
@@ -87,9 +87,9 @@ Credits in fixture: 165 (156 explainable; the remainder are orphans and re-posts
 
 | Configuration | Codes |
 |---|---|
-| T0 only | DUPLICATE_SUSPECTED 1 |
-| T0 + T1 | DUPLICATE_SUSPECTED 1 |
-| T0 + T1 + T2 | AMBIGUOUS_SUBSET 4, DUPLICATE_SUSPECTED 1, POOL_TOO_LARGE 43 |
+| T0 only | DUPLICATE_SUSPECTED 1, NO_CANDIDATE 142 |
+| T0 + T1 | DUPLICATE_SUSPECTED 1, NO_CANDIDATE 115 |
+| T0 + T1 + T2 | AMBIGUOUS_SUBSET 4, DUPLICATE_SUSPECTED 1, NO_CANDIDATE 8, POOL_TOO_LARGE 43 |
 | Full cascade | *not yet measured* |
 | LLM-only baseline | *not yet measured* |
 

@@ -34,14 +34,21 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from sqlalchemy import Connection
+from sqlalchemy import Connection, text
 
-from ledgerloop.audit.provenance import TierResult, record_exception, record_match
+from ledgerloop.audit.provenance import (
+    ProposedException,
+    TierResult,
+    record_exception,
+    record_match,
+)
 from ledgerloop.cascade.tier0_exact import match_tier0
 from ledgerloop.cascade.tier1_tolerant import match_tier1
-from ledgerloop.cascade.tier2_subsetsum import match_tier2
+from ledgerloop.cascade.tier2_subsetsum import candidate_pool, match_tier2
 from ledgerloop.cascade.tier3_llm import match_tier3
-from ledgerloop.exceptions.codes import TERMINAL
+from ledgerloop.config import DEFAULT_MATCH_CONFIG, MatchConfig
+from ledgerloop.exceptions.codes import TERMINAL, ExceptionCode
+from ledgerloop.generate.fee_model import SETTLEMENT_FEE_MODEL, FeeModel
 from ledgerloop.ingest.schemas import BankRow, SettlementRow
 from ledgerloop.llm.adapter import LLMAdapter
 from ledgerloop.llm.cache import ResponseCache
@@ -173,6 +180,29 @@ def reconcile(
         if on_tier is not None:
             on_tier(outcome)
 
+    # Tier 4 — the sweep. §6: every unresolved record lands in the queue with a
+    # machine-readable reason code. Without this a credit no tier objected to leaves no
+    # trace at all: counted in the residual, present in no exception row, invisible to
+    # anyone reading the queue. A batch that reports a match rate while quietly losing
+    # its remainder is lying by omission.
+    already_raised = {
+        row[0]
+        for row in conn.execute(
+            text(
+                "SELECT bank_txn_id FROM exceptions "
+                "WHERE run_id = :run AND bank_txn_id IS NOT NULL"
+            ),
+            {"run": run_id},
+        )
+    }
+    for raised in _sweep_residual(
+        bank_txns,
+        settlements,
+        claimed=claimed_bank,
+        already_raised=already_raised,
+    ):
+        record_exception(conn, run_id, raised)
+
     degraded = no_llm and 3 in tiers
     finish_run(
         conn,
@@ -228,3 +258,59 @@ def _run_tier(
             (outcome.llm_invocations, outcome.cache_hits, outcome.hallucinations),
         )
     return TierResult(matches=[], exceptions=[]), empty
+
+
+def _sweep_residual(
+    bank_txns: Sequence[BankRow],
+    settlements: Sequence[SettlementRow],
+    *,
+    claimed: set[str],
+    already_raised: set[str],
+    fee_model: FeeModel = SETTLEMENT_FEE_MODEL,
+    config: MatchConfig = DEFAULT_MATCH_CONFIG,
+) -> list[ProposedException]:
+    """Give every still-unexplained credit a reason code.
+
+    A credit a tier already objected to keeps that tier's reason. Overwriting an
+    AMBIGUOUS_SUBSET with a generic NO_CANDIDATE would discard the explanations a human
+    needs to choose between, turning a decidable exception into an opaque one.
+
+    The distinction between the two codes is drawn from evidence the matcher actually
+    has. An empty candidate pool means nothing in the window could explain this credit,
+    which is what an out-of-band transfer looks like from the inside — ORPHAN_CREDIT. A
+    non-empty pool means candidates existed and none fitted — NO_CANDIDATE. The matcher
+    cannot *know* a credit is an orphan; only ground truth knows that, and this is an
+    inference from absence rather than a claim of fact.
+    """
+    swept: list[ProposedException] = []
+    for bank_txn in bank_txns:
+        if bank_txn.bank_txn_id in claimed or bank_txn.bank_txn_id in already_raised:
+            continue
+
+        # The pool is built over *every* settlement, not only the unclaimed ones. A
+        # credit whose candidates were consumed by other credits is not an orphan — the
+        # counterpart existed, we simply spent it elsewhere. Narrowing this to what is
+        # left over would label ordinary contention as an out-of-band transfer.
+        pool = candidate_pool(bank_txn, settlements, fee_model=fee_model, config=config)
+        code = (
+            ExceptionCode.NO_CANDIDATE if pool else ExceptionCode.ORPHAN_CREDIT
+        )
+        swept.append(
+            ProposedException(
+                code=code,
+                bank_txn_id=bank_txn.bank_txn_id,
+                settlement_id=None,
+                value_at_risk_paise=bank_txn.credit_paise,
+                detail={
+                    "candidates_in_window": len(pool),
+                    "narration": bank_txn.narration,
+                    "note": (
+                        f"{len(pool)} settlement(s) sat in this credit's window and none "
+                        "reconciled"
+                        if pool
+                        else "no settlement fell in this credit's window at all"
+                    ),
+                },
+            )
+        )
+    return swept

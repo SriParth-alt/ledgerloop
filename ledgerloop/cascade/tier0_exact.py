@@ -37,6 +37,7 @@ from datetime import date
 
 from ledgerloop.audit.provenance import MatchEvidence, ProposedMatch
 from ledgerloop.ingest.schemas import BankRow, SettlementRow
+from ledgerloop.rules.promote import EMPTY_STORE, RuleStore
 
 RULE_UTR_EXACT = "T0-UTR-EXACT"
 RULE_AMOUNT_DATE_UNIQUE = "T0-AMOUNT-DATE-UNIQUE"
@@ -64,14 +65,26 @@ _NON_ALPHANUMERIC = re.compile(r"[^A-Z0-9]")
 FIELD_SPLIT = re.compile(r"[/|]")
 
 
-def normalise_utr(token: str) -> str:
-    """Uppercase, strip non-alphanumerics, then drop glued bank prefixes."""
+def normalise_utr(token: str, *, rules: RuleStore = EMPTY_STORE) -> str:
+    """Uppercase, strip non-alphanumerics, then drop glued bank prefixes.
+
+    ``rules`` carries prefixes a human approved after resolving an exception. They are
+    appended to the built-in list and are subject to exactly the same safety floor: a
+    promoted rule may never whittle a token below ``MIN_REFERENCE_LENGTH``, because this
+    tier posts at confidence 1.0 and a rule that manufactured a reference would be the
+    most expensive thing the system could learn.
+
+    Note what this changes about the tier's determinism. It remains deterministic *given
+    a rule store* rather than deterministic as fixed code, and the store is committed so
+    a run is still reproducible from the repository alone.
+    """
     normalised = _NON_ALPHANUMERIC.sub("", token.upper())
+    prefixes = (*BANK_PREFIXES, *rules.narration_prefixes)
 
     changed = True
     while changed:
         changed = False
-        for prefix in BANK_PREFIXES:
+        for prefix in prefixes:
             remainder = normalised[len(prefix) :]
             if (
                 normalised.startswith(prefix)
