@@ -20,6 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from typer.testing import CliRunner
 
 from eval.ablation import NOT_MEASURED, AblationArm, run_ablation
 from eval.summary import RESULTS_END, RESULTS_START, render_summary, splice
@@ -137,3 +138,70 @@ def test_splice_refuses_a_readme_with_no_markers(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="marker"):
         splice(path, "table")
+
+
+# --- the partial-table footgun ------------------------------------------------------
+
+
+def _cli() -> object:
+    """The Typer app with the eval commands registered.
+
+    `evaluate` is attached to `ledgerloop.cli.app` by importing `eval.cli` — the dependency
+    points that way on purpose (ADR-023). Importing it here rather than relying on some
+    other test module having done so during collection, which made these tests pass or
+    fail depending on collection order.
+    """
+    import eval.cli  # noqa: F401  - registers the commands as a side effect
+    from ledgerloop.cli import app
+
+    return app
+
+
+def test_a_single_fixture_run_never_splices_the_readme(tmp_path: Path) -> None:
+    """`evaluate --fixture easy` must not replace the full table with five rows.
+
+    The README carries every fixture. A single-fixture run knows about one, so splicing
+    its result would silently delete two thirds of the published table — and the deletion
+    looks exactly like a successful regeneration. Found by running `--fixture easy` while
+    chasing a quota reset, which would have quietly gutted the README on the day of
+    submission.
+
+    Only `--all-fixtures` writes the published artefacts. Everything else writes its own
+    `--out` and stops.
+    """
+
+
+    readme = tmp_path / "README.md"
+    original = f"# T\n\n{RESULTS_START}\nORIGINAL TABLE\n{RESULTS_END}\n"
+    readme.write_text(original, encoding="utf-8")
+
+    result = CliRunner().invoke(_cli(), [
+        "evaluate", "--fixture", "easy", "--records", "60", "--no-llm",
+        "--out", str(tmp_path / "m.md"),
+        "--summary-out", str(tmp_path / "s.md"),
+        "--readme", str(readme),
+    ])
+
+    assert result.exit_code == 0, result.output
+    assert readme.read_text(encoding="utf-8") == original
+    assert "ORIGINAL TABLE" in readme.read_text(encoding="utf-8")
+
+
+def test_an_all_fixtures_run_does_splice_the_readme(tmp_path: Path) -> None:
+    """The other half of the rule: a complete sweep is exactly what the README wants."""
+
+
+    readme = tmp_path / "README.md"
+    readme.write_text(f"# T\n\n{RESULTS_START}\nOLD\n{RESULTS_END}\n", encoding="utf-8")
+
+    result = CliRunner().invoke(_cli(), [
+        "evaluate", "--all-fixtures", "--records", "60", "--no-llm",
+        "--out", str(tmp_path / "m.md"),
+        "--summary-out", str(tmp_path / "s.md"),
+        "--readme", str(readme),
+    ])
+
+    assert result.exit_code == 0, result.output
+    written = readme.read_text(encoding="utf-8")
+    assert "OLD" not in written
+    assert "adversarial" in written

@@ -1512,3 +1512,47 @@ alone, the assertion would have pressured someone into stripping a genuine diagn
 satisfy a test that was measuring a substring instead of a behaviour. It now checks for
 `<link>`, `<script src>`, `<img src>`, `@import` and `url(http...)`, and a second test pins
 the distinction so nobody re-tightens it.
+
+---
+
+## ADR-039 — Only a complete sweep writes the published table
+
+**Date:** 2026-09-02
+**Status:** Accepted. Closes a footgun that had already fired.
+
+**Context:** `evaluate` writes `results/summary.md` and splices it into README between the
+rule-7 markers (ADR-036). It did that for *any* run, including `--fixture easy`, which
+scores one fixture.
+
+That is a silent destructive edit. The README's table carries all three fixtures; a
+single-fixture run knows about one, so publishing its result deletes ten of the fifteen
+rows — and the deletion looks exactly like a successful regeneration, because the command
+prints "spliced results into README.md" either way.
+
+**It had already fired.** While checking whether a free-tier quota had reset on submission
+day, `evaluate --fixture easy` was run without `--summary-out`. It defaulted to the real
+path and overwrote `results/summary.md` with five `easy` rows. The README escaped only
+because that same invocation passed a `--readme` that had no markers, and `splice` refused
+rather than guessing (which is the behaviour ADR-036 chose deliberately, and it paid for
+itself here).
+
+**Decision:** only `--all-fixtures` writes `results/summary.md` or touches the README.
+Every other run writes its own `--out` and says plainly that it left the published files
+alone.
+
+**Alternatives considered:**
+- **Merge a single fixture's rows into the existing table.** Lost: the merged table would
+  mix figures from runs made at different times under different code, which is precisely
+  the unreproducible artefact rule 7 exists to prevent.
+- **Prompt before overwriting.** Lost: `make eval` runs unattended in CI, and a prompt
+  there is a hang.
+
+**Consequences:** two tests pin both halves — a single-fixture run leaves the README
+byte-identical, and an `--all-fixtures` run still splices.
+
+Both tests initially depended on some *other* test module having imported `eval.cli`
+during collection, since that import is what registers the `evaluate` command on the shared
+Typer app. They passed or failed by collection order. They now import it themselves. Worth
+recording next to ADR-037: **a test whose outcome depends on what else ran is a test that
+will eventually lie to you**, and it lies in the direction of passing.
+

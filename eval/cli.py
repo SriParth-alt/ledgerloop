@@ -206,16 +206,26 @@ def evaluate(
 
         # Rule 7 made mechanical: the README's table is written here, and a test asserts
         # it stays byte-identical to results/summary.md. Nobody types a metric.
-        block = render_summary(results)
-        summary_out.parent.mkdir(parents=True, exist_ok=True)
-        summary_out.write_text(
-            block.strip() + "\n", encoding="utf-8", newline="\n"
-        )
-        if readme.exists():
-            splice(readme, block)
-            console.print(f"[green]spliced[/] results into {readme}")
-
-    console.print(f"[green]wrote[/] {out} and {summary_out}")
+        #
+        # **Only a complete sweep writes the published artefacts.** A single-fixture run
+        # knows about one fixture, so publishing its result silently deletes two thirds of
+        # the table — and the deletion looks exactly like a successful regeneration. That
+        # is not hypothetical: `evaluate --fixture easy` was run while chasing a quota
+        # reset on submission day, and it overwrote results/summary.md with five rows.
+        if all_fixtures:
+            block = render_summary(results)
+            summary_out.parent.mkdir(parents=True, exist_ok=True)
+            summary_out.write_text(block.strip() + "\n", encoding="utf-8", newline="\n")
+            if readme.exists():
+                splice(readme, block)
+                console.print(f"[green]spliced[/] results into {readme}")
+            console.print(f"[green]wrote[/] {out} and {summary_out}")
+        else:
+            console.print(f"[green]wrote[/] {out}")
+            console.print(
+                "[dim]single fixture — README and summary left alone; "
+                "use --all-fixtures to publish[/]"
+            )
 
 
 def main() -> None:
