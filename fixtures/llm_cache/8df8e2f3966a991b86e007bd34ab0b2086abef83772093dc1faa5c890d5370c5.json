@@ -1,0 +1,4 @@
+{
+  "key": "8df8e2f3966a991b86e007bd34ab0b2086abef83772093dc1faa5c890d5370c5",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00116\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"reference\",\n      \"bank_value\": \"RZRPY9702097\",\n      \"settlement_value\": \"RZRPY9702097\",\n      \"reasoning\": \"Exact match between bank narration reference and settlement reference.\"\n    },\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"917845 paise\",\n      \"settlement_value\": \"917848 paise\",\n      \"reasoning\": \"Amounts align within normal rounding/fee tolerances for gateway settlement.\"\n    },\n    {\n      \"field_name\": \"date\",\n      \"bank_value\": \"2026-08-12\",\n      \"settlement_value\": \"2026-08-12\",\n      \"reasoning\": \"Bank credit value date matches the settlement date.\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": null\n}\n```"
+}

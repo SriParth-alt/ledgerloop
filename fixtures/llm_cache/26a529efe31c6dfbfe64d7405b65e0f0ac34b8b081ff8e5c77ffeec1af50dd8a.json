@@ -1,0 +1,4 @@
+{
+  "key": "26a529efe31c6dfbfe64d7405b65e0f0ac34b8b081ff8e5c77ffeec1af50dd8a",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00044\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount credited\",\n      \"bank_value\": \"2342677 paise\",\n      \"settlement_value\": \"2342678 paise\",\n      \"reasoning\": \"Amounts match within standard 1-paise rounding difference.\"\n    },\n    {\n      \"field_name\": \"customer / narration\",\n      \"bank_value\": \"TRIDENT MOTORS Limited\",\n      \"settlement_value\": \"TRIDENT MOTORS LTD\",\n      \"reasoning\": \"Customer name in bank narration matches settlement customer.\"\n    },\n    {\n      \"field_name\": \"value date\",\n      \"bank_value\": \"2026-08-19\",\n      \"settlement_value\": \"2026-08-19\",\n      \"reasoning\": \"Bank credit date matches the settlement date.\"\n    }\n  ],\n  \"confidence\": 0.99,\n  \"unresolved_reason\": null\n}\n```"
+}

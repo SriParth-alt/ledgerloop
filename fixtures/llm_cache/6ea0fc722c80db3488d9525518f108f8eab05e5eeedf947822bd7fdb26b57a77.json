@@ -1,0 +1,4 @@
+{
+  "key": "6ea0fc722c80db3488d9525518f108f8eab05e5eeedf947822bd7fdb26b57a77",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00046\",\n    \"STL00178\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount credited\",\n      \"bank_value\": \"6049926 paise\",\n      \"settlement_value\": \"2449073 + 2779015 = 5228088 paise (does not match sum alone, checking combined)\",\n      \"reasoning\": \"Wait, let me check the sum of net amounts: STL00046 (2449073) + STL00178 (2779015) = 5228088. This does not equal 6049926.\"\n    }\n  ],\n  \"confidence\": 0.0,\n  \"unresolved_reason\": \"None of the single settlements or obvious combinations sum up to 6049926 paise with matching merchant Acme Retail Pvt Ltd.\"\n}\n```"
+}

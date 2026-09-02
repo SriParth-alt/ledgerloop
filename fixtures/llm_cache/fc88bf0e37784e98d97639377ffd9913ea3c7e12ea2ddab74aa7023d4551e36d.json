@@ -1,0 +1,4 @@
+{
+  "key": "fc88bf0e37784e98d97639377ffd9913ea3c7e12ea2ddab74aa7023d4551e36d",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00111\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"reference\",\n      \"bank_value\": \"RZRPY2851738\",\n      \"settlement_value\": \"RZRPY2851738\",\n      \"reasoning\": \"The gateway reference number in the bank narration exactly matches the reference of settlement STL00111.\"\n    },\n    {\n      \"field_name\": \"value date\",\n      \"bank_value\": \"2026-08-07\",\n      \"settlement_value\": \"2026-08-07\",\n      \"reasoning\": \"The bank credit value date matches the settlement date of STL00111.\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": null\n}\n```"
+}

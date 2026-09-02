@@ -1,0 +1,4 @@
+{
+  "key": "3a31253b05d716a074e713da9a3257c7a210546a416fa78a647453447272680f",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\"STL00218\"],\n  \"evidence\": [\n    {\n      \"field_name\": \"reference\",\n      \"bank_value\": \"RZRPY1077519\",\n      \"settlement_value\": \"RZRPY1077519\",\n      \"reasoning\": \"Gateway reference in the bank narration matches STL00218 exactly.\"\n    },\n    {\n      \"field_name\": \"customer\",\n      \"bank_value\": \"KAVERI AGRO EXPORTS\",\n      \"settlement_value\": \"KAVERI AGRO EXPORTS\",\n      \"reasoning\": \"Customer name in the bank narration matches STL00218.\"\n    },\n    {\n      \"field_name\": \"value date\",\n      \"bank_value\": \"2026-08-12\",\n      \"settlement_value\": \"2026-08-12\",\n      \"reasoning\": \"Bank value date is the same day as the settlement date.\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": null\n}\n```"
+}

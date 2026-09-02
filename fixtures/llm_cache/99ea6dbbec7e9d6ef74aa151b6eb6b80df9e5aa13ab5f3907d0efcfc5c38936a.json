@@ -1,0 +1,4 @@
+{
+  "key": "99ea6dbbec7e9d6ef74aa151b6eb6b80df9e5aa13ab5f3907d0efcfc5c38936a",
+  "response": "{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00023\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount credited\",\n      \"bank_value\": \"671502 paise\",\n      \"settlement_value\": \"671502 paise\",\n      \"reasoning\": \"Bank credit amount exactly matches the net settlement amount.\"\n    },\n    {\n      \"field_name\": \"reference / narration\",\n      \"bank_value\": \"RZRPY6451553\",\n      \"settlement_value\": \"RZRPY6451553\",\n      \"reasoning\": \"Gateway reference ID is explicitly present in the bank narration.\"\n    },\n    {\n      \"field_name\": \"value date\",\n      \"bank_value\": \"2026-08-06\",\n      \"settlement_value\": \"2026-08-06\",\n      \"reasoning\": \"Bank credit lands on the exact settlement date.\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": null\n}"
+}

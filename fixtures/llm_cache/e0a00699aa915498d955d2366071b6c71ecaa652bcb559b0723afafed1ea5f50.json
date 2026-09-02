@@ -1,0 +1,4 @@
+{
+  "key": "e0a00699aa915498d955d2366071b6c71ecaa652bcb559b0723afafed1ea5f50",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00188\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount credited\",\n      \"bank_value\": \"2680627 paise\",\n      \"settlement_value\": \"2680627 paise\",\n      \"reasoning\": \"The bank credit amount exactly matches the net amount of settlement STL00188.\"\n    },\n    {\n      \"field_name\": \"reference / narration\",\n      \"bank_value\": \"RZRPY1269895\",\n      \"settlement_value\": \"RZRPY1269895\",\n      \"reasoning\": \"The gateway payment reference found in the bank narration matches the reference for STL00188.\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": null\n}\n```"
+}

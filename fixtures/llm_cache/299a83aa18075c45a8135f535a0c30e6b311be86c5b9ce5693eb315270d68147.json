@@ -1,0 +1,4 @@
+{
+  "key": "299a83aa18075c45a8135f535a0c30e6b311be86c5b9ce5693eb315270d68147",
+  "response": "```json\n{\n  \"decision\": \"NO_MATCH\",\n  \"matched_settlement_ids\": [],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount_credited\",\n      \"bank_value\": \"6851712 paise\",\n      \"settlement_value\": \"No single settlement or combination matches this exact net amount (closest single is STL00134 at 2446793, STL00043 at 2219729, etc., and sums do not align with 6851712).\",\n      \"reasoning\": \"The bank credit amount does not match any individual settlement net amount or logical combination.\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": \"No candidate settlement or combination of settlements matches the bank credit amount of 6851712 paise.\"\n}\n```"
+}

@@ -1,0 +1,4 @@
+{
+  "key": "46b59120738cea2c6a854bb02a61f47c2e6fecbee2a08ec9c7e8a8d0696fc436",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\"STL00238\", \"STL00148\"],\n  \"evidence\": [\n    {\n      \"field_name\": \"reference\",\n      \"bank_value\": \"RZRPY8640555\",\n      \"settlement_value\": \"RZRPY8640555\",\n      \"reasoning\": \"Exact match with reference in bank narration for STL00238.\"\n    },\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"1907852 paise\",\n      \"settlement_value\": \"1020196 (STL00238) + 581833 (STL00148) + others/partial or exact sum check\",\n      \"reasoning\": \"Sum of net amounts for STL00238 (1020196) and STL00148 (581833) plus STL00241 (887656) etc. Wait, 1020196 + 887656 = 1907852.\"\n    }\n  ],\n  \"confidence\": 0.95,\n  \"unresolved_reason\": null\n}\n```"
+}

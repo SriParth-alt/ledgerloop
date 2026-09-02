@@ -1,0 +1,4 @@
+{
+  "key": "27a5a9b6313c3b9c0d09d7557df3d6695e184541fb45514518a74faffd7952df",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00069\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"1614450 paise\",\n      \"settlement_value\": \"1614451 paise\",\n      \"reasoning\": \"Amounts match within 1 paisa rounding difference.\"\n    },\n    {\n      \"field_name\": \"value date\",\n      \"bank_value\": \"2026-08-10\",\n      \"settlement_value\": \"2026-08-10\",\n      \"reasoning\": \"Bank credit lands on the exact settlement date.\"\n    },\n    {\n      \"field_name\": \"customer / narration\",\n      \"bank_value\": \"SUNRISE PACKAGING PVT LTD\",\n      \"settlement_value\": \"SUNRISE PACKAGING PVT LTD\",\n      \"reasoning\": \"Merchant name in bank narration matches the settlement customer.\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": null\n}\n```"
+}

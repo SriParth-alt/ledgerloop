@@ -1,0 +1,4 @@
+{
+  "key": "8114d2fe9c647ad3ade78150e89121ffdd9dbfbe6297781cb895b3d1c7e3df9c",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00181\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount credited\",\n      \"bank_value\": \"1866405 paise\",\n      \"settlement_value\": \"1168563 paise (STL00181)\",\n      \"reasoning\": \"Wait, let me check the math. Amount credited is 1866405. STL00181 is 1168563. That doesn't match.\"\n    }\n  ],\n  \"confidence\": 0.0,\n  \"unresolved_reason\": \"No single settlement or combination of settlements matches the bank credit amount of 1866405 paise.\"\n}\n```"
+}

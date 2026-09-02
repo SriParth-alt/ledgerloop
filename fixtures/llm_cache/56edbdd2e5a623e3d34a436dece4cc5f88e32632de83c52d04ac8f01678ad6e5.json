@@ -1,0 +1,4 @@
+{
+  "key": "56edbdd2e5a623e3d34a436dece4cc5f88e32632de83c52d04ac8f01678ad6e5",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\"STL00143\"],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount credited\",\n      \"bank_value\": \"6677449 paise\",\n      \"settlement_value\": \"4540837 paise\",\n      \"reasoning\": \"Wait, checking sums... Ah, let's look at STL00143: net 4540837. Does any combination match 6677449? Let's check STL00046 (2449073) + STL00062 (1166869)? No. Let's check narration reference rzrpy2332-576 matching STL00143 reference RZRPY2332576 and customer BLUEPEAK LOGISTICS PRIVATE LIMITED.\"\n    }\n  ],\n  \"confidence\": 0.5,\n  \"unresolved_reason\": \"\"\n}\n```"
+}

@@ -1,0 +1,4 @@
+{
+  "key": "a05d9d0e4adbecbe04ef530526e93dba92829632d8bf42831983b48cdf1ebfa7",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00009\",\n    \"STL00064\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"8441300\",\n      \"settlement_value\": \"2984111 (STL00009) + 1989095 (STL00064) = 4973206 ... wait, let's check sum\",\n      \"reasoning\": \"Sum of STL00009 net (2984111) + STL00064 net (1989095) + ... Wait, 2984111 + 1989095 = 4973206 which does not equal 8441300.\"\n    }\n  ],\n  \"confidence\": 0.0,\n  \"unresolved_reason\": \"Let me re-evaluate the sum. 2984111 + 5457189? Let's check other combinations. Actually, STL00009 (2984111) + STL00064 (1989095) = 4973206. None of the combinations sum to 8441300 except maybe others? Wait, let's check STL00009 (2984111) and others. Let's output NO_MATCH due to amount mismatch.\"\n}\n```"
+}

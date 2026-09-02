@@ -1,0 +1,4 @@
+{
+  "key": "b157f061133bfe3b49e12a079fc8a0131e859925493e65477ab46d2901dd0208",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00061\",\n    \"STL00223\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"5968119\",\n      \"settlement_value\": \"3402500 + 1150498 = 4552998 (Wait, let's check combinations)\",\n      \"reasoning\": \"Sum of net amounts for STL00061 (3402500) and STL00223 (1150498) is 4552998? No, let's re-add: 3402500 + 1150498 = 4552998 doesn't match 5968119. Let's check STL00223 (1150498) and STL00057 (3474754) + STL00223 (1150498) = 4625252...\"\n    }\n  ],\n  \"confidence\": 0.0,\n  \"unresolved_reason\": \"No combination of settlement net amounts equals 5968119 paise.\"\n}\n```"
+}

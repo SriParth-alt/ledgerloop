@@ -1,0 +1,4 @@
+{
+  "key": "8ae9fafe94ffaa333df1fdc57d8bacd11a7b40b755711cbda2586542227c1ce0",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00023\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount credited\",\n      \"bank_value\": \"994973\",\n      \"settlement_value\": \"671502\",\n      \"reasoning\": \"Amount mismatch when compared to single settlement, but let's check exact match. Wait: 671502 does not equal 994973. Let's re-add: STL00023 is 671502. Is there a combination? 671502 + 323471 = 994973 (STL00017 or STL00018).\"\n    },\n    {\n      \"field_name\": \"reference\",\n      \"bank_value\": \"RZRPY6451553\",\n      \"settlement_value\": \"RZRPY6451553\",\n      \"reasoning\": \"Reference in narration matches STL00023 exactly.\"\n    }\n  ],\n  \"confidence\": 0.5,\n  \"unresolved_reason\": \"\"\n}\n```"
+}

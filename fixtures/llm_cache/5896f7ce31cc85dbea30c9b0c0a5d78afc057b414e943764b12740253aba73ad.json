@@ -1,0 +1,4 @@
+{
+  "key": "5896f7ce31cc85dbea30c9b0c0a5d78afc057b414e943764b12740253aba73ad",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\"STL00090\"],\n  \"evidence\": [\n    {\n      \"field_name\": \"reference\",\n      \"bank_value\": \"RZRPY1304161\",\n      \"settlement_value\": \"RZRPY1304161\",\n      \"reasoning\": \"Exact match between bank narration reference and settlement reference.\"\n    },\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"6707797 paise\",\n      \"settlement_value\": \"1978733 paise\",\n      \"reasoning\": \"Wait, looking at the amounts, STL00090 is 1978733 paise while bank credit is 6707797 paise. Let me re-read. Ah, wait. Is there another combination? Let's check dates and amounts.\"\n    }\n  ],\n  \"confidence\": 0.5,\n  \"unresolved_reason\": \"\"\n}\n```"
+}

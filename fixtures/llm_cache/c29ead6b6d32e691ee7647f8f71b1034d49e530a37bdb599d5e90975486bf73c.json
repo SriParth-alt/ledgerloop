@@ -1,0 +1,4 @@
+{
+  "key": "c29ead6b6d32e691ee7647f8f71b1034d49e530a37bdb599d5e90975486bf73c",
+  "response": "```json\n{\n  \"decision\": \"NO_MATCH\",\n  \"matched_settlement_ids\": [],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"275482 paise\",\n      \"settlement_value\": \"68088 paise\",\n      \"reasoning\": \"The bank credit amount (275482) does not match the single candidate net amount (68088), nor is it a sum of multiple settlements since only one candidate is provided.\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": \"The bank credit amount of 275482 paise significantly exceeds the only available candidate settlement amount of 68088 paise, and no other candidates are listed to form a sum.\"\n}\n```"
+}

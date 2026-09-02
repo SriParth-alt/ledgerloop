@@ -1,0 +1,4 @@
+{
+  "key": "c4fbc2f3c2117c1e45dec8e93f887863cd678a728627428514521524c96d9f91",
+  "response": "```json\n{\n  \"decision\": \"NO_MATCH\",\n  \"matched_settlement_ids\": [],\n  \"evidence\": [\n    {\n      \"field_name\": \"reference\",\n      \"bank_value\": \"RZRPY1238418\",\n      \"settlement_value\": \"RZRPY1238418\",\n      \"reasoning\": \"Matches STL00142, but amounts do not sum up to the bank credit.\"\n    }\n  ],\n  \"confidence\": 0.0,\n  \"unresolved_reason\": \"The bank credit amount (7231570 paise) does not match any single settlement or valid combination of settlements from the candidate list.\"\n}\n```"
+}

@@ -1,0 +1,4 @@
+{
+  "key": "7f596915eee1c8bc102768255dc8cf7a9dcc2f282afcf0f0382f0372a748867c",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00102\",\n    \"STL00157\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"1847655\",\n      \"settlement_value\": \"430175 + 129695 = 559870\",\n      \"reasoning\": \"Wait, let me check other combinations. Sum of STL00102 (430175) and STL00157 (129695) is 559870. Let's check STL00084 (1587791) + STL00157 (129695) = 1717486. Let's check STL00102 (430175) + STL00141 (1204719) + STL00157 (129695) = 1847589. Let's check dates and values.\"\n    }\n  ],\n  \"confidence\": 0.0,\n  \"unresolved_reason\": \"Re-evaluating combinations: STL00102 (430175) + STL00141 (1204719) + STL00157 (129695) = 1847589 (off by 66 paise due to rounding or exact match in Python backend). Let's output NO_MATCH due to ambiguity or exact sum check.\"\n}\n```"
+}

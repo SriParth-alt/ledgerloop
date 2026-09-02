@@ -1,0 +1,4 @@
+{
+  "key": "f9182458e5ad5989b60fc696f101e66b53a27dedbf17c6f179780eaa1f5afbae",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00154\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount credited\",\n      \"bank_value\": \"7898818 paise\",\n      \"settlement_value\": \"4538298 paise\",\n      \"reasoning\": \"Wait, 4538298 does not equal 7898818. Let's check other combinations.\"\n    }\n  ],\n  \"confidence\": 0.0,\n  \"unresolved_reason\": \"Multiple settlements or amounts do not match directly.\"\n}\n```"
+}

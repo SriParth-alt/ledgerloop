@@ -1,0 +1,4 @@
+{
+  "key": "932be5d41bbd0db1c39dc6c0cc04280ae7bd205e180e05af1f99abf486a53767",
+  "response": "```json\n{\n  \"decision\": \"NO_MATCH\",\n  \"matched_settlement_ids\": [],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"507007\",\n      \"settlement_value\": \"323471, 323471, 321717\",\n      \"reasoning\": \"No single settlement or combination of valid captured settlements equals the bank credit amount of 507007 paise (STL00066 is disputed).\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": \"No combination of captured settlements matches the bank credit amount.\"\n}\n```"
+}

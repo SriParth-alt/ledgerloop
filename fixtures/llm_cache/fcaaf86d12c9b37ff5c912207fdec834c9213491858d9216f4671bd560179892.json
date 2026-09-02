@@ -1,0 +1,4 @@
+{
+  "key": "fcaaf86d12c9b37ff5c912207fdec834c9213491858d9216f4671bd560179892",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00152\",\n    \"STL00179\",\n    \"STL00221\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount credited\",\n      \"bank_value\": \"10215406\",\n      \"settlement_value\": \"851714 + 4477280 + 112303 = 5441297... wait, let me sum: 851714 + 4477280 + 112303 = 5441297? No, 851714+4477280+112303 doesn't equal 10215406.\",\n      \"reasoning\": \"Let's check alternative combination for KAVERI AGRO EXPORTS or sum of 851714 + 4477280 + 112303. Wait, let's look at numbers: 851714 + 4477280 + 4621672? No.\"\n    }\n  ],\n  \"confidence\": 0.0,\n  \"unresolved_reason\": \"Sum of KAVERI AGRO EXPORTS settlements does not match the bank amount.\"\n}\n```"
+}

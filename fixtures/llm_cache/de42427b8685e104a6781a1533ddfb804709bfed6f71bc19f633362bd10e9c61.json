@@ -1,0 +1,4 @@
+{
+  "key": "de42427b8685e104a6781a1533ddfb804709bfed6f71bc19f633362bd10e9c61",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00190\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"9083227\",\n      \"settlement_value\": \"4599099\",\n      \"reasoning\": \"Wait, let me check combinations. STL00190 (4599099) + STL00146 (3731118) + STL00148 (581833) = 8912050? Let's check STL00190 (4599099) and reference RZRPY1581705 in narration.\"\n    }\n  ],\n  \"confidence\": 0.5,\n  \"unresolved_reason\": \"\"\n}\n```"
+}

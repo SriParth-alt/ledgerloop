@@ -1,0 +1,4 @@
+{
+  "key": "6437086107fd5b1c81a1e5e612c694e962a74946fee1db2df56e07598a438a74",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00083\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"3989089 paise\",\n      \"settlement_value\": \"3989090 paise\",\n      \"reasoning\": \"Amounts match within standard 1-paise rounding tolerance.\"\n    },\n    {\n      \"field_name\": \"customer\",\n      \"bank_value\": \"Acme Retail Private Limited\",\n      \"settlement_value\": \"ACME RETAIL PVT LTD\",\n      \"reasoning\": \"Merchant name in bank narration closely matches the settlement customer.\"\n    },\n    {\n      \"field_name\": \"date\",\n      \"bank_value\": \"2026-08-05\",\n      \"settlement_value\": \"2026-08-05\",\n      \"reasoning\": \"Bank value date matches the settlement date.\"\n    }\n  ],\n  \"confidence\": 0.99,\n  \"unresolved_reason\": null\n}\n```"
+}

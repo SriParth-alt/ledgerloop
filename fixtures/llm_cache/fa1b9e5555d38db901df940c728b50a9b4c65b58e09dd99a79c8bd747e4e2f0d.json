@@ -1,0 +1,4 @@
+{
+  "key": "fa1b9e5555d38db901df940c728b50a9b4c65b58e09dd99a79c8bd747e4e2f0d",
+  "response": "```json\n{\n  \"decision\": \"NO_MATCH\",\n  \"matched_settlement_ids\": [],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"4586852 paise\",\n      \"settlement_value\": \"Various combinations tested\",\n      \"reasoning\": \"No single settlement or combination of captured settlements matches the bank credit amount of 4586852 paise.\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": \"No candidate settlement combination equals the bank credit amount of 4586852 paise.\"\n}\n```"
+}

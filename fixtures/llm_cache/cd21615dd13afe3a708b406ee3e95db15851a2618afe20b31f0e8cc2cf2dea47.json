@@ -1,0 +1,4 @@
+{
+  "key": "cd21615dd13afe3a708b406ee3e95db15851a2618afe20b31f0e8cc2cf2dea47",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00041\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"4761038 paise\",\n      \"settlement_value\": \"4761039 paise\",\n      \"reasoning\": \"Amounts match within the 1-paise rounding tolerance.\"\n    },\n    {\n      \"field_name\": \"date\",\n      \"bank_value\": \"2026-08-26\",\n      \"settlement_value\": \"2026-08-26\",\n      \"reasoning\": \"Bank value date matches the settlement date exactly.\"\n    },\n    {\n      \"field_name\": \"customer\",\n      \"bank_value\": \"KAVERI AGRO EXPORTS\",\n      \"settlement_value\": \"KAVERI AGRO EXPORTS\",\n      \"reasoning\": \"Customer name in bank narration matches the settlement customer.\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": null\n}\n```"
+}

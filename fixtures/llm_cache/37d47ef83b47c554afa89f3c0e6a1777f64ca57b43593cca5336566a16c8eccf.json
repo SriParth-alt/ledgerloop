@@ -1,0 +1,4 @@
+{
+  "key": "37d47ef83b47c554afa89f3c0e6a1777f64ca57b43593cca5336566a16c8eccf",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00102\",\n    \"STL00240\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"1924733\",\n      \"settlement_value\": \"430175 + 1181902 = 1612077 ... wait let me sum STL00102 (430175) + STL00240 (1181902) = 1612077, which does not equal 1924733. Let me recheck combinations.\"\n    }\n  ],\n  \"confidence\": 0.0,\n  \"unresolved_reason\": \"No single settlement or combination of captured settlements sums to 1924733 paise.\"\n}\n```"
+}

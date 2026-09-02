@@ -1,0 +1,4 @@
+{
+  "key": "2269eb11e51e646c3c8c9106b879cf82ff3db8aa08a473c87a62d2d2aa0961fc",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00091\",\n    \"STL00192\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"9018392 paise\",\n      \"settlement_value\": \"1697087 + 4010645 = 5707732? Wait, let's sum STL00091 (1697087) + STL00192 (4010645) = 5707732. That doesn't match 9018392.\"\n    }\n  ],\n  \"confidence\": 0.0,\n  \"unresolved_reason\": \"\"\n}\n```"
+}

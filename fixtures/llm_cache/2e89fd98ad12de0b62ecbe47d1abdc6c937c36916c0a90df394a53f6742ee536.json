@@ -1,0 +1,4 @@
+{
+  "key": "2e89fd98ad12de0b62ecbe47d1abdc6c937c36916c0a90df394a53f6742ee536",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\"STL00090\"],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount credited\",\n      \"bank_value\": \"6707795 paise\",\n      \"settlement_value\": \"1978733 paise\",\n      \"reasoning\": \"Wait, the amounts do not match. Bank credit is 6707795, but STL00090 net is 1978733. Let me re-read...\"\n    }\n  ],\n  \"confidence\": 0.0,\n  \"unresolved_reason\": \"Amounts do not match (Bank: 6707795, STL00090 net: 1978733, and no combination sums to 6707795).\"\n}\n```"
+}

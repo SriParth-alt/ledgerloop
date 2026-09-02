@@ -34,7 +34,7 @@ the difference between 4 matches and 41 (ADR-019).
 | T0 only | 100.0% | 100.0% | **0.0%** | 100.0% | 250 | 0 |
 | T0 + T1 | 100.0% | 100.0% | **0.0%** | 100.0% | 250 | 0 |
 | T0 + T1 + T2 | 100.0% | 100.0% | **0.0%** | 100.0% | 250 | 0 |
-| Full cascade | *not yet measured* | *not yet measured* | *not yet measured* | *not yet measured* | — | — |
+| Full cascade | 100.0% | 100.0% | **0.0%** | 100.0% | 250 | 0 |
 | LLM-only baseline | *not yet measured* | *not yet measured* | *not yet measured* | *not yet measured* | — | — |
 
 Credits in fixture: 250 (250 explainable; the remainder are orphans and re-posts that no matcher should resolve).
@@ -46,8 +46,21 @@ Credits in fixture: 250 (250 explainable; the remainder are orphans and re-posts
 | T0 only | — |
 | T0 + T1 | — |
 | T0 + T1 + T2 | — |
-| Full cascade | *not yet measured* |
+| Full cascade | — |
 | LLM-only baseline | *not yet measured* |
+
+### Model usage
+
+**Adjudications** is how many credits the configuration put to the model,
+and it is the figure §9.2 compares. **New API calls** is what this
+particular run paid for — a property of the response cache rather than of
+the architecture, and it falls to zero on a re-run. Reporting only the
+second would understate model usage by whatever the cache happened to
+hold.
+
+| Configuration | Adjudications | New API calls | Hallucinated ids |
+|---|---|---|---|
+| Full cascade | 0 | 0 | 0 |
 
 ## Fixture: `realistic` (seed 42)
 
@@ -56,8 +69,8 @@ Credits in fixture: 250 (250 explainable; the remainder are orphans and re-posts
 | T0 only | 41.1% | 100.0% | **0.0%** | 41.1% | 76 | 0 |
 | T0 + T1 | 68.6% | 100.0% | **0.0%** | 68.6% | 127 | 0 |
 | T0 + T1 + T2 | 94.6% | 100.0% | **0.0%** | 94.6% | 175 | 0 |
-| Full cascade | *not yet measured* | *not yet measured* | *not yet measured* | *not yet measured* | — | — |
-| LLM-only baseline | *not yet measured* | *not yet measured* | *not yet measured* | *not yet measured* | — | — |
+| Full cascade | 94.6% | 100.0% | **0.0%** | 94.6% | 175 | 0 |
+| LLM-only baseline | 74.1% | 100.0% | **0.0%** | 74.1% | 137 | 0 |
 
 Credits in fixture: 185 (185 explainable; the remainder are orphans and re-posts that no matcher should resolve).
 
@@ -68,8 +81,22 @@ Credits in fixture: 185 (185 explainable; the remainder are orphans and re-posts
 | T0 only | NO_CANDIDATE 109 |
 | T0 + T1 | NO_CANDIDATE 58 |
 | T0 + T1 + T2 | AMBIGUOUS_SUBSET 5, POOL_TOO_LARGE 5 |
-| Full cascade | *not yet measured* |
-| LLM-only baseline | *not yet measured* |
+| Full cascade | AMBIGUOUS_SUBSET 5, AMOUNT_BEYOND_TOLERANCE 2, LLM_INVALID_OUTPUT 2, NO_CANDIDATE 1 |
+| LLM-only baseline | AMOUNT_BEYOND_TOLERANCE 21, LLM_INVALID_OUTPUT 24, NO_CANDIDATE 3 |
+
+### Model usage
+
+**Adjudications** is how many credits the configuration put to the model,
+and it is the figure §9.2 compares. **New API calls** is what this
+particular run paid for — a property of the response cache rather than of
+the architecture, and it falls to zero on a re-run. Reporting only the
+second would understate model usage by whatever the cache happened to
+hold.
+
+| Configuration | Adjudications | New API calls | Hallucinated ids |
+|---|---|---|---|
+| Full cascade | 5 | 0 | 0 |
+| LLM-only baseline | 185 | 0 | 0 |
 
 ## Fixture: `adversarial` (seed 42)
 
@@ -78,8 +105,8 @@ Credits in fixture: 185 (185 explainable; the remainder are orphans and re-posts
 | T0 only | 13.3% | 100.0% | **0.0%** | 14.1% | 22 | 0 |
 | T0 + T1 | 26.1% | 100.0% | **0.0%** | 27.6% | 43 | 0 |
 | T0 + T1 + T2 | 59.4% | 100.0% | **0.0%** | 62.8% | 98 | 0 |
-| Full cascade | *not yet measured* | *not yet measured* | *not yet measured* | *not yet measured* | — | — |
-| LLM-only baseline | *not yet measured* | *not yet measured* | *not yet measured* | *not yet measured* | — | — |
+| Full cascade | 67.9% | 100.0% | **0.0%** | 71.8% | 112 | 0 |
+| LLM-only baseline | 53.9% | 98.9% | **1.1%** | 56.4% | 89 | 1 |
 
 Credits in fixture: 165 (156 explainable; the remainder are orphans and re-posts that no matcher should resolve).
 
@@ -90,15 +117,26 @@ Credits in fixture: 165 (156 explainable; the remainder are orphans and re-posts
 | T0 only | DUPLICATE_SUSPECTED 1, NO_CANDIDATE 142 |
 | T0 + T1 | DUPLICATE_SUSPECTED 1, NO_CANDIDATE 121 |
 | T0 + T1 + T2 | AMBIGUOUS_SUBSET 4, DUPLICATE_SUSPECTED 1, NO_CANDIDATE 8, POOL_TOO_LARGE 54 |
-| Full cascade | *not yet measured* |
-| LLM-only baseline | *not yet measured* |
+| Full cascade | AMBIGUOUS_SUBSET 4, AMOUNT_BEYOND_TOLERANCE 19, LLM_INVALID_OUTPUT 19, NO_CANDIDATE 11, POOL_TOO_LARGE 14 |
+| LLM-only baseline | AMOUNT_BEYOND_TOLERANCE 40, LLM_INVALID_OUTPUT 27, NO_CANDIDATE 9 |
+
+### Model usage
+
+**Adjudications** is how many credits the configuration put to the model,
+and it is the figure §9.2 compares. **New API calls** is what this
+particular run paid for — a property of the response cache rather than of
+the architecture, and it falls to zero on a re-run. Reporting only the
+second would understate model usage by whatever the cache happened to
+hold.
+
+| Configuration | Adjudications | New API calls | Hallucinated ids |
+|---|---|---|---|
+| Full cascade | 61 | 0 | 0 |
+| LLM-only baseline | 165 | 0 | 0 |
 
 ## Not yet measured
 
-The **Full cascade** and **LLM-only baseline** rows are *not yet measured* because
-Tier 3 does not exist yet. The LLM-only row is the control arm: without it the
-cascade is an assertion rather than a result, so it is present here from the start
-to make its absence visible.
-
-Cost per 100 records, token counts and the hallucination counter are likewise
-unreported rather than zero — no model has run, so there is nothing to report.
+1 arm(s) carry no number. Reason: sweep interrupted (quota or provider outage) before every credit was asked about. A partially answered arm is reported as unmeasured rather than scored over
+the fraction of the fixture that fit inside a quota window — that figure would
+be unreproducible and would still get quoted. Answers already paid for are
+cached, so resuming costs nothing for them.

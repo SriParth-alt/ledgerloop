@@ -1,0 +1,4 @@
+{
+  "key": "8d2685a2d557c4ea757158418984a91f1b2e60820a280fce125461d415276a76",
+  "response": "```json\n{\n  \"decision\": \"NO_MATCH\",\n  \"matched_settlement_ids\": [],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"7775564 paise\",\n      \"settlement_value\": \"STL00061 (3402500) + others do not sum correctly\",\n      \"reasoning\": \"The bank credit amount does not match any single settlement net amount or valid combination of settlements within the date window.\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": \"No single settlement or combination of candidate settlements matches the bank credit amount of 7775564 paise.\"\n}\n```"
+}

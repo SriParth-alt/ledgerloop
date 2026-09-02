@@ -1,0 +1,4 @@
+{
+  "key": "47ca74f2dea561d51ba6c3f14110f53e4ac325981d418c228f6e7773982ea6e6",
+  "response": "```json\n{\n  \"decision\": \"NO_MATCH\",\n  \"matched_settlement_ids\": [],\n  \"evidence\": [],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": \"No single settlement or combination of net amounts equals the bank credit amount of 507007 paise within the allowed settlement window.\"\n}\n```"
+}

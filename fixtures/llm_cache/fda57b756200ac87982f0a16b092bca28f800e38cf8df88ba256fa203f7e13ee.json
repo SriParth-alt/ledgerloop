@@ -1,0 +1,4 @@
+{
+  "key": "fda57b756200ac87982f0a16b092bca28f800e38cf8df88ba256fa203f7e13ee",
+  "response": "```json\n{\n  \"decision\": \"NO_MATCH\",\n  \"matched_settlement_ids\": [],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"806248 paise\",\n      \"settlement_value\": \"Various combinations (e.g., STL00112 + STL00186 = 704913; STL00148 alone = 581833)\",\n      \"reasoning\": \"No single settlement or valid combination matches the bank credit amount of 806248 paise.\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": \"The bank credit amount of 806248 paise does not match any single candidate settlement's net amount nor any logical combination of them.\"\n}\n```"
+}

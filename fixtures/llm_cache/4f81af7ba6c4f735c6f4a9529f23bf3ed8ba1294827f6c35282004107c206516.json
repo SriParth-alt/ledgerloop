@@ -1,0 +1,4 @@
+{
+  "key": "4f81af7ba6c4f735c6f4a9529f23bf3ed8ba1294827f6c35282004107c206516",
+  "response": "```json\n{\n  \"decision\": \"NO_MATCH\",\n  \"matched_settlement_ids\": [],\n  \"evidence\": [\n    {\n      \"field_name\": \"reference\",\n      \"bank_value\": \"RZRPY1238418\",\n      \"settlement_value\": \"RZRPY1238418\",\n      \"reasoning\": \"Reference matches STL00142, but the bank credit amount (7231570 paise) does not equal the net amount of STL00142 (3770176 paise), nor does any valid combination sum up to the credit amount within the allowed settlement date window.\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": \"The bank credit amount of 7231570 paise does not match the net amount of the candidate with the matching reference (STL00142 has net 3770176), and no other combination of settlements sums to the credit amount.\"\n}\n```"
+}

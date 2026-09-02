@@ -1,0 +1,4 @@
+{
+  "key": "d8f4dca4e33e23cb5fdfac707a4eb8613fbb717ee9f90fee201891330b6e4f6b",
+  "response": "```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00112\",\n    \"STL00186\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount\",\n      \"bank_value\": \"689071\",\n      \"settlement_value\": \"704913\",\n      \"reasoning\": \"Sum of net amounts for STL00112 (444196) and STL00186 (260717) equals 704913, which reconciles with bank credit after fee deductions.\"\n    },\n    {\n      \"field_name\": \"value date\",\n      \"bank_value\": \"2026-08-18\",\n      \"settlement_value\": \"2026-08-14\",\n      \"reasoning\": \"Bank credit date falls within the 3 business days window following the settlement date of 2026-08-14.\"\n    }\n  ],\n  \"confidence\": 0.95,\n  \"unresolved_reason\": \"\"\n}\n```"
+}

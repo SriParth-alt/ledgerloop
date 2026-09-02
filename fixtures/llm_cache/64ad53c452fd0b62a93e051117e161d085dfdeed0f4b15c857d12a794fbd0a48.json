@@ -1,0 +1,4 @@
+{
+  "key": "64ad53c452fd0b62a93e051117e161d085dfdeed0f4b15c857d12a794fbd0a48",
+  "response": "```json\n{\n  \"decision\": \"NO_MATCH\",\n  \"matched_settlement_ids\": [],\n  \"evidence\": [],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": \"The bank credit amount is 751613 paise. No single settlement or valid combination of the candidate net amounts (430175, 687616, 261082) sums up to 751613 paise.\"\n}\n```"
+}
