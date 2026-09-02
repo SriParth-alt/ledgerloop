@@ -50,12 +50,25 @@ def test_adding_tiers_never_reduces_what_is_matched(tmp_path: Path) -> None:
     assert posted == sorted(posted)
 
 
-def test_tier3_rows_are_reported_as_not_yet_measured(tmp_path: Path) -> None:
-    """Tier 3 lands tomorrow. Until then these rows carry no number of any kind."""
-    arms = run_ablation(FIXTURE, records=RECORDS, seed=42, workdir=tmp_path)
-    pending = {arm.label: arm for arm in arms if arm.metrics is None}
+def test_an_arm_is_unmeasured_only_when_the_model_was_needed_and_missing(
+    tmp_path: Path,
+) -> None:
+    """The precise rule, which is narrower than "no key means no number".
 
-    assert set(pending) == {"Full cascade", "LLM-only baseline"}
+    With no adapter and no cache, the LLM-only baseline cannot ask about anything and
+    carries no number. The full cascade, on this fixture, *also* asks about nothing —
+    T0-T2 resolve every credit, so Tier 3 has an empty residual and needs no model to
+    reach a complete answer. That arm is genuinely measurable.
+
+    An arm is unmeasured when credits went unanswered, not when a key was absent. The
+    distinction is what lets CI reproduce the model rows from the committed cache with no
+    credentials at all (ADR-035).
+    """
+    arms = run_ablation(FIXTURE, records=RECORDS, seed=42, workdir=tmp_path)
+    by_label = {arm.label: arm for arm in arms}
+
+    assert by_label["LLM-only baseline"].metrics is None
+    assert by_label["Full cascade"].metrics is not None
 
 
 def test_the_report_contains_no_hand_written_number(tmp_path: Path) -> None:

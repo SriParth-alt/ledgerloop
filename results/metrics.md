@@ -136,7 +136,7 @@ hold.
 
 ## Not yet measured
 
-1 arm(s) carry no number. Reason: sweep interrupted (quota or provider outage) before every credit was asked about. A partially answered arm is reported as unmeasured rather than scored over
+1 arm(s) carry no number. Reason: no model configured. A partially answered arm is reported as unmeasured rather than scored over
 the fraction of the fixture that fit inside a quota window — that figure would
 be unreproducible and would still get quoted. Answers already paid for are
 cached, so resuming costs nothing for them.

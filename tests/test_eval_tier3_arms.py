@@ -29,7 +29,7 @@ from eval.ablation import (
     run_ablation,
     write_report,
 )
-from ledgerloop.llm.adapter import ScriptedAdapter, SweepInterruptedError
+from ledgerloop.llm.adapter import DEFAULT_MODEL, ScriptedAdapter, SweepInterruptedError
 from ledgerloop.llm.cache import ResponseCache
 
 FIXTURE = "realistic"
@@ -62,7 +62,11 @@ def _declines(count: int) -> _QuotaLimitedAdapter:
     """
     return _QuotaLimitedAdapter(
         responses=['{"settlement_ids": [], "confidence": 0.0, "reasoning": "no"}']
-        * count
+        * count,
+        # Named after the pinned model, because the cache is keyed on the model of record
+        # and in production the adapter filling it *is* that model. A double called
+        # "scripted" would warm a cache no keyless run could ever read.
+        name=DEFAULT_MODEL,
     )
 
 
@@ -72,7 +76,7 @@ def _declines(count: int) -> _QuotaLimitedAdapter:
 def test_the_estimate_sends_nothing(tmp_path: Path) -> None:
     """The whole point of `--estimate-only`: the user approves a call count before a
     single request is paid for."""
-    adapter = ScriptedAdapter(responses=[])  # raises if called at all
+    adapter = ScriptedAdapter(responses=[], name=DEFAULT_MODEL)  # raises if called
 
     estimate = estimate_calls(
         FIXTURE, records=RECORDS, seed=SEED, workdir=tmp_path, adapter=adapter
@@ -190,7 +194,8 @@ def test_a_second_sweep_buys_nothing_it_already_owns(tmp_path: Path) -> None:
     )
     assert first.calls > 0
 
-    second = ScriptedAdapter(responses=[])  # raises the moment it is asked for anything
+    # Raises the moment it is asked for anything, and named so it reads the same cache.
+    second = ScriptedAdapter(responses=[], name=DEFAULT_MODEL)
     run_ablation(
         FIXTURE, records=RECORDS, seed=SEED, workdir=tmp_path / "b",
         adapter=second, cache=cache,
@@ -257,7 +262,7 @@ def test_adjudications_are_reported_separately_from_new_api_calls(tmp_path: Path
     )
     second = run_ablation(
         FIXTURE, records=RECORDS, seed=SEED, workdir=tmp_path / "b",
-        adapter=ScriptedAdapter(responses=[]), cache=cache,
+        adapter=ScriptedAdapter(responses=[], name=DEFAULT_MODEL), cache=cache,
     )
 
     cold = next(a for a in first if a.label == "LLM-only baseline").metrics
@@ -285,3 +290,43 @@ def test_the_report_labels_which_call_count_is_which(tmp_path: Path) -> None:
 
     assert "Adjudications" in text
     assert "New API calls" in text
+
+
+def test_a_model_arm_is_measurable_from_cache_with_no_adapter(tmp_path: Path) -> None:
+    """CI has no API key, and it still has to reproduce the §9.2 model rows.
+
+    The first version of `_score_arm` returned *not yet measured* the moment `adapter is
+    None`, before trying the cache at all. CI caught it within a minute of the drift check
+    existing: a keyless regeneration blanked every model row that the committed cache could
+    perfectly well have answered. Whether an arm is measurable is a question about whether
+    every credit got asked, not about whether a key was configured.
+    """
+    cache = ResponseCache(tmp_path / "cache")
+    run_ablation(
+        FIXTURE, records=RECORDS, seed=SEED, workdir=tmp_path / "warm",
+        adapter=_declines(500), cache=cache,
+    )
+
+    keyless = run_ablation(
+        FIXTURE, records=RECORDS, seed=SEED, workdir=tmp_path / "cold",
+        adapter=None, cache=cache,
+    )
+
+    baseline = next(a for a in keyless if a.label == "LLM-only baseline")
+    assert baseline.metrics is not None, "the cache could answer this and was not asked"
+    assert baseline.metrics.llm_invocations == 0
+    assert baseline.metrics.cache_hits > 0
+
+
+def test_an_arm_the_cache_cannot_cover_is_not_scored(tmp_path: Path) -> None:
+    """The other half of the same rule. With no adapter and an empty cache, Tier 3 records
+    MODEL_UNAVAILABLE per credit and the run *succeeds* (§8). Scoring it would publish a
+    rate over the credits nobody asked about."""
+    keyless = run_ablation(
+        FIXTURE, records=RECORDS, seed=SEED, workdir=tmp_path,
+        adapter=None, cache=ResponseCache(tmp_path / "empty"),
+    )
+
+    baseline = next(a for a in keyless if a.label == "LLM-only baseline")
+    assert baseline.metrics is None
+    assert baseline.note == NOT_MEASURED

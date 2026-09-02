@@ -1335,7 +1335,13 @@ arithmetic and schema gates rejecting real cached model responses, visible in th
 output.
 
 CI now runs `make demo` on every push with no key configured, so the claim is checked
-continuously rather than asserted once.
+continuously rather than asserted once — and it earned its keep within a minute of existing.
+The first CI run after this landed failed the drift check, because `run_ablation` returned
+*not yet measured* the moment `adapter is None`, before trying the cache at all. A keyless
+regeneration therefore blanked every model row the committed cache could perfectly well have
+answered. The rule is now narrower and correct: **an arm is unmeasured when credits went
+unanswered, not when a key was absent.** A `Full cascade` arm whose deterministic tiers leave
+no residual needs no model and is fully measurable without one.
 
 This is the fifth defect in this project that a green test suite did not see, and it has a
 distinguishing feature worth naming: **it was invisible because the fallback path was

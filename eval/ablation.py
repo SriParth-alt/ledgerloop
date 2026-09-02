@@ -40,6 +40,7 @@ from eval.metrics import RunMetrics
 from ledgerloop.cascade.orchestrator import reconcile
 from ledgerloop.cascade.tier3_llm import rank_candidates
 from ledgerloop.config import DEFAULT_MATCH_CONFIG
+from ledgerloop.exceptions.codes import ExceptionCode
 from ledgerloop.generate.fee_model import SETTLEMENT_FEE_MODEL
 from ledgerloop.generate.synth import BANK_FILE, INVOICES_FILE, SETTLEMENTS_FILE, generate_fixture
 from ledgerloop.ingest.loader import load_batch
@@ -219,10 +220,12 @@ def _score_arm(
 ) -> AblationArm:
     """Run one arm, or report honestly why it has no number."""
     run_id = arm.label.replace(" ", "").replace("+", "_")
-    needs_model = 3 in arm.tiers
 
-    if needs_model and adapter is None:
-        return AblationArm(label=arm.label, tiers=arm.tiers, note=NOT_MEASURED, detail=NO_MODEL)
+    # Deliberately *not* short-circuiting on `adapter is None`. The committed cache can
+    # carry a model arm with no key at all — that is the entire point of committing it
+    # (ADR-026, ADR-035), and it is how CI reproduces these numbers without credentials.
+    # Whether the arm is measurable is decided after the run, by whether every credit
+    # actually got asked about.
 
     with connect(workdir / f"{fixture}-{run_id}.db") as conn:
         _load(conn, run_id, source, fixture)
@@ -242,6 +245,21 @@ def _score_arm(
                 label=arm.label, tiers=arm.tiers, note=NOT_MEASURED, detail=INTERRUPTED
             )
         elapsed = time.perf_counter() - started
+
+        # A cache miss with no adapter does not raise — Tier 3 records MODEL_UNAVAILABLE
+        # per credit and the run completes, because §8 requires exactly that degradation.
+        # Scoring it anyway would publish a rate over the credits the cache happened to
+        # cover, which is the partial number ADR-032 exists to refuse.
+        unanswered = conn.execute(
+            text(
+                "SELECT COUNT(*) FROM exceptions WHERE run_id = :run AND reason_code = :code"
+            ),
+            {"run": run_id, "code": ExceptionCode.MODEL_UNAVAILABLE.value},
+        ).scalar_one()
+        if unanswered:
+            return AblationArm(
+                label=arm.label, tiers=arm.tiers, note=NOT_MEASURED, detail=NO_MODEL
+            )
 
         return AblationArm(
             label=arm.label,
