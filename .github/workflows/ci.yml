@@ -37,10 +37,13 @@ jobs:
       - name: Demo (fresh clone, no API key)
         run: make demo
 
-      # The README's results table is generated, never typed (rule 7). Regenerating it
-      # from the committed cache must leave the working tree untouched -- a diff here
-      # means either someone hand-edited a number, or the numbers moved and the README
-      # was not regenerated. Both are release blockers.
+      # The README's results table and the HTML report are both generated, never typed
+      # (rule 7). Regenerating them from the committed cache must leave the working tree
+      # untouched -- a diff here means either someone hand-edited a number, or the numbers
+      # moved and the artefacts were not regenerated. Both are release blockers.
+      #
+      # `make demo` above already rewrote results/report.html, so this step covers it too:
+      # the page is reproducible from the cache on a machine with no API key.
       - name: Results table is generated, not hand-written
         run: |
           ledgerloop evaluate --all-fixtures --out results/metrics.md

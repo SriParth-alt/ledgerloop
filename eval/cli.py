@@ -26,6 +26,8 @@ from ledgerloop.cli import app, console
 from ledgerloop.generate.synth import TRUTH_FILE
 from ledgerloop.llm.adapter import GEMINI_DEFAULT_MODEL, RateLimit, build_adapter
 from ledgerloop.llm.cache import ResponseCache
+from ledgerloop.report.assemble import assemble
+from ledgerloop.report.html import render_report
 from ledgerloop.store.db import DEFAULT_DB_PATH, connect, run_exists
 
 #: Committed alongside the code so CI — and a reviewer with no key — can re-run Tier 3
@@ -40,8 +42,24 @@ def report(
     fixture: str = typer.Option("realistic", help="Which fixture the run used."),
     fixtures_dir: Path = typer.Option(Path("fixtures")),
     db: Path = typer.Option(DEFAULT_DB_PATH),
+    html: Path | None = typer.Option(
+        None, help="Also write a self-contained HTML report to this path."
+    ),
+    records: int = typer.Option(250, help="Records the run used; only needed for --html."),
+    seed: int = typer.Option(42, help="Seed the run used; only needed for --html."),
+    cache_dir: Path = typer.Option(DEFAULT_CACHE_DIR),
 ) -> None:
-    """Print the metrics table and exception breakdown for one run."""
+    """Print the metrics table and exception breakdown for one run.
+
+    ``--html`` additionally writes the §12 buffer-policy deliverable: one self-contained
+    file with the cascade, the ablation, the exception queue, the provenance trail, and a
+    replay of Tier 3 adjudications showing each gate running on the model's actual output.
+    It opens from a file:// URL with no server and no network.
+
+    Scoring lives here rather than in the renderer because precision needs ground truth,
+    and `ledgerloop/` may never read it (rule 6). This command computes the numbers and
+    hands them over; the renderer is a pure function that computes nothing.
+    """
     with connect(db) as conn:
         if not run_exists(conn, run_id):
             console.print(f"[red]no such run[/] {run_id!r}")
@@ -49,6 +67,21 @@ def report(
         metrics = score_run(
             conn, run_id, load_truth(fixtures_dir / fixture / TRUTH_FILE), seconds=0.0
         )
+        if html is not None:
+            summary = Path("results/summary.md")
+            data = assemble(
+                conn,
+                run_id,
+                fixture=fixture,
+                records=records,
+                seed=seed,
+                metrics=metrics,
+                cache_dir=cache_dir,
+                ablation_md=summary.read_text(encoding="utf-8") if summary.exists() else None,
+            )
+            html.parent.mkdir(parents=True, exist_ok=True)
+            html.write_text(render_report(data), encoding="utf-8", newline="\n")
+            console.print(f"[green]wrote[/] {html}")
 
     console.print(f"[bold]run[/] {run_id}  fixture {fixture}")
     console.print(

@@ -29,7 +29,7 @@ fmt:
 demo:
 	ledgerloop generate --fixture adversarial --records 250
 	ledgerloop reconcile --run-id demo --fixture adversarial
-	ledgerloop report --run-id demo --fixture adversarial
+	ledgerloop report --run-id demo --fixture adversarial --html results/report.html
 
 # Full ablation across fixtures. Writes results/metrics.md.
 # Every number in README.md comes from here and from nowhere else.

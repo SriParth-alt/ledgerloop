@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LedgerLoop — run demo</title>
+<style>
+:root{--ground:#F4F6F8;--surface:#FFF;--raised:#FAFBFC;--border:#DCE3E9;--border-firm:#C4CFD8;
+--ink:#111A22;--ink-soft:#3B4A57;--muted:#64757F;--brass:#96702A;--brass-soft:#F0E4CC;
+--ok:#2E7D55;--warn:#A8632A;--crit:#A63F39;--t0:#3E6E96;--t1:#3F8177;--t2:#8A7F35;--t3:#96702A;
+--shadow:0 1px 2px rgba(17,26,34,.06),0 8px 24px -12px rgba(17,26,34,.14);
+--mono:ui-monospace,"SF Mono","Cascadia Mono","Roboto Mono",Menlo,Consolas,monospace;
+--sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+--serif:ui-serif,Georgia,"Times New Roman",serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+--ground:#0E141A;--surface:#151D25;--raised:#1B242D;--border:#25323D;--border-firm:#33434F;
+--ink:#E6EBF0;--ink-soft:#B4C1CC;--muted:#8697A6;--brass:#D5A748;--brass-soft:#2A2415;
+--ok:#4BA97A;--warn:#D98A45;--crit:#D96B63;--t0:#5B8DB8;--t1:#5FA79C;--t2:#B0A55F;--t3:#D5A748;
+--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.7)}}
+:root[data-theme="dark"]{--ground:#0E141A;--surface:#151D25;--raised:#1B242D;--border:#25323D;
+--border-firm:#33434F;--ink:#E6EBF0;--ink-soft:#B4C1CC;--muted:#8697A6;--brass:#D5A748;
+--brass-soft:#2A2415;--ok:#4BA97A;--warn:#D98A45;--crit:#D96B63;--t0:#5B8DB8;--t1:#5FA79C;
+--t2:#B0A55F;--t3:#D5A748;--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.7)}
+*{box-sizing:border-box}html{color-scheme:light dark}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;
+line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px 96px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.strip{position:sticky;top:0;z-index:20;background:var(--surface);
+border-bottom:1px solid var(--border);margin-bottom:40px}
+.strip-in{max-width:1180px;margin:0 auto;padding:12px 28px;display:flex;align-items:center;
+gap:22px;flex-wrap:wrap}
+.mark{font-family:var(--serif);font-weight:600;font-size:17px}
+.mark span{color:var(--brass)}
+.facts{display:flex;gap:18px;flex-wrap:wrap;margin-left:auto;font-family:var(--mono);
+font-size:11.5px;color:var(--muted)}
+.facts b{color:var(--ink-soft);font-weight:500}
+.keyless{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;
+border:1px solid var(--border-firm);border-radius:999px;font-family:var(--mono);
+font-size:11px;color:var(--ok)}
+.keyless::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ok)}
+.thesis{font-family:var(--serif);font-size:clamp(21px,3vw,29px);line-height:1.35;max-width:24ch;
+font-weight:400;text-wrap:balance;margin:0 0 8px}
+.thesis em{font-style:italic;color:var(--brass)}
+.thesis-sub{color:var(--muted);max-width:60ch;margin:0 0 36px;font-size:14.5px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;
+margin-bottom:44px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+padding:18px 20px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.stat.hero{border-color:var(--ok)}
+.stat.hero::after{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--ok)}
+.stat-k{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+color:var(--muted);margin-bottom:10px}
+.stat-v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:31px;font-weight:600;
+line-height:1;letter-spacing:-.02em}
+.stat.hero .stat-v{color:var(--ok)}
+.stat-n{font-size:12.5px;color:var(--muted);margin-top:8px}
+section{margin-bottom:52px}
+h2{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+color:var(--muted);margin:0 0 4px}
+.lede{color:var(--ink-soft);font-size:14px;margin:0 0 20px;max-width:70ch}
+.cascade{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+padding:24px;box-shadow:var(--shadow)}
+.bar{display:flex;height:46px;border-radius:6px;overflow:hidden;margin-bottom:16px}
+.seg{display:flex;align-items:center;justify-content:center;font-family:var(--mono);
+font-size:12.5px;font-weight:600;color:#fff;transform-origin:left;
+animation:grow .55s cubic-bezier(.2,.7,.3,1) backwards;transition:filter .15s}
+.seg:hover{filter:brightness(1.12)}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.seg.residual{background:repeating-linear-gradient(45deg,var(--raised),var(--raised) 6px,
+var(--border) 6px,var(--border) 12px);color:var(--muted)}
+.legend{display:flex;gap:20px;flex-wrap:wrap;font-size:12.5px}
+.legend>div{display:flex;align-items:baseline;gap:8px}
+.swatch{width:9px;height:9px;border-radius:2px;flex:none;transform:translateY(-1px)}
+.legend b{font-family:var(--mono);font-weight:600}
+.legend span{color:var(--muted)}
+.scroll{overflow-x:auto;border:1px solid var(--border);border-radius:10px;
+background:var(--surface);box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+color:var(--muted);text-align:left;padding:12px 16px;font-weight:500;
+border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:11px 16px;border-bottom:1px solid var(--border);vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+.r{text-align:right}td.r,th.r{font-variant-numeric:tabular-nums}
+tr.win td{background:color-mix(in srgb,var(--ok) 7%,transparent)}
+tr.lose td{background:color-mix(in srgb,var(--crit) 6%,transparent)}
+.zero{color:var(--ok);font-weight:600}.bad{color:var(--crit);font-weight:600}
+.clusters{display:flex;flex-direction:column;gap:10px}
+.cl{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--sev);
+border-radius:8px;padding:14px 18px;box-shadow:var(--shadow)}
+.cl-top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.code{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--sev)}
+.count{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.risk{margin-left:auto;font-family:var(--mono);font-variant-numeric:tabular-nums;
+font-size:14px;font-weight:600}
+.cl-why{font-size:13px;color:var(--ink-soft);margin:0}
+.meter{height:3px;border-radius:2px;background:var(--border);margin-top:10px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--sev)}
+.filters{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.chip{font-family:var(--mono);font-size:11.5px;padding:5px 12px;border-radius:999px;
+border:1px solid var(--border-firm);background:var(--surface);color:var(--ink-soft);
+cursor:pointer}
+.chip:hover{border-color:var(--brass)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.chip:focus-visible,summary:focus-visible,.run:focus-visible,.pick:focus-visible{
+outline:2px solid var(--brass);outline-offset:2px}
+.tier{font-family:var(--mono);font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;
+color:#fff;white-space:nowrap}
+details.prov{border-bottom:1px solid var(--border)}
+details.prov:last-child{border-bottom:none}
+summary{list-style:none;cursor:pointer;padding:12px 16px;display:grid;
+grid-template-columns:66px 1fr auto auto;gap:14px;align-items:center}
+summary::-webkit-details-marker{display:none}
+summary:hover{background:var(--raised)}
+.txn{font-family:var(--mono);font-size:13px;font-weight:500}
+.rule{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.conf{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;
+color:var(--ink-soft)}
+.caret{color:var(--muted);font-size:11px;transition:transform .2s}
+details[open] .caret{transform:rotate(90deg)}
+.body{padding:4px 16px 20px 82px;display:flex;flex-direction:column;gap:14px}
+.ev{border-left:2px solid var(--border-firm);padding-left:14px}
+.ev-f{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+color:var(--muted);margin-bottom:4px}
+.ev-cmp{font-family:var(--mono);font-size:12.5px;display:flex;gap:10px;align-items:baseline;
+flex-wrap:wrap}
+.ev-cmp .arrow{color:var(--brass)}
+.ev-n{font-size:12.5px;color:var(--ink-soft);margin-top:3px}
+.meta{display:flex;gap:24px;flex-wrap:wrap;padding-top:12px;border-top:1px dashed var(--border);
+font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.meta b{display:block;color:var(--ink-soft);font-weight:500;margin-top:2px;word-break:break-all}
+.hash{font-size:11px;line-height:1.7}
+.theatre{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+box-shadow:var(--shadow);overflow:hidden}
+.picker{display:flex;border-bottom:1px solid var(--border);overflow-x:auto}
+.pick{flex:1 0 auto;min-width:158px;padding:12px 16px;background:none;border:none;
+border-bottom:2px solid transparent;cursor:pointer;text-align:left;font-family:var(--sans);
+color:var(--muted)}
+.pick:hover{background:var(--raised);color:var(--ink)}
+.pick[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--dot)}
+.pick-t{font-family:var(--mono);font-size:12px;font-weight:600;display:flex;align-items:center;
+gap:7px}
+.pick-t::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--dot);flex:none}
+.pick-s{font-size:11.5px;margin-top:3px}
+.stage-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.pane{padding:20px 22px;min-width:0}
+.pane+.pane{border-left:1px solid var(--border)}
+.pane-h{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.step-n{width:17px;height:17px;border-radius:50%;background:var(--brass-soft);color:var(--brass);
+display:grid;place-items:center;font-size:10px;font-weight:600;flex:none}
+pre{font-family:var(--mono);font-size:11.5px;line-height:1.6;background:var(--raised);
+border:1px solid var(--border);border-radius:7px;padding:12px 14px;margin:0;max-height:250px;
+overflow:auto;white-space:pre-wrap;word-break:break-word;color:var(--ink-soft)}
+pre mark{background:color-mix(in srgb,var(--crit) 24%,transparent);color:var(--ink);
+border-radius:2px;padding:0 2px}
+.credit-line{font-family:var(--mono);font-size:20px;font-weight:600;
+font-variant-numeric:tabular-nums;margin-bottom:2px}
+.credit-sub{font-family:var(--mono);font-size:11.5px;color:var(--muted);word-break:break-all;
+margin-bottom:14px}
+.pool{display:flex;flex-direction:column;gap:5px}
+.pool-r{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:baseline;
+font-family:var(--mono);font-size:11.5px;padding:5px 9px;border-radius:5px;
+background:var(--raised)}
+.pool-r span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pool-more{font-family:var(--mono);font-size:11px;color:var(--muted);padding:3px 9px}
+.gates{display:flex;flex-direction:column;gap:8px}
+.gate{display:grid;grid-template-columns:26px 1fr;gap:12px;padding:11px 13px;
+border:1px solid var(--border);border-radius:8px;background:var(--raised);opacity:.34;
+transition:opacity .3s,border-color .3s,background .3s}
+.gate.on{opacity:1}.gate.pass{border-color:var(--ok)}
+.gate.fail{border-color:var(--crit);background:color-mix(in srgb,var(--crit) 9%,transparent)}
+.gate.skip{opacity:.26}
+.mk{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:13px;
+font-weight:700;border:1.5px solid var(--border-firm);color:var(--muted)}
+.gate.pass .mk{border-color:var(--ok);color:var(--ok)}
+.gate.fail .mk{border-color:var(--crit);color:var(--crit)}
+.gate-n{font-family:var(--mono);font-size:12px;font-weight:600}
+.gate-d{font-size:12.5px;color:var(--muted);margin-top:3px}
+.gate.fail .gate-d{color:var(--crit)}
+.verdict{margin-top:16px;padding:14px 16px;border-radius:8px;font-family:var(--mono);
+display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid var(--vc);
+background:color-mix(in srgb,var(--vc) 12%,transparent)}
+.verdict b{font-size:13px;font-weight:600;color:var(--vc)}
+.verdict span{font-family:var(--sans);font-size:12.5px;color:var(--ink-soft)}
+.runbar{display:flex;align-items:center;gap:12px;padding:12px 22px;
+border-top:1px solid var(--border);background:var(--raised);flex-wrap:wrap}
+.run{font-size:13px;font-weight:600;padding:8px 20px;border-radius:7px;
+border:1px solid var(--ink);background:var(--ink);color:var(--ground);cursor:pointer}
+.run:hover{opacity:.85}
+.runnote{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.tag-scripted{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:4px;
+border:1px dashed var(--border-firm);color:var(--muted)}
+.foot{border-top:1px solid var(--border);padding-top:18px;color:var(--muted);font-size:12.5px}
+.foot code{font-family:var(--mono);color:var(--ink-soft)}
+@media (max-width:860px){.stage-grid{grid-template-columns:1fr}
+.pane+.pane{border-left:none;border-top:1px solid var(--border)}}
+@media (max-width:720px){.wrap{padding:0 18px 64px}
+summary{grid-template-columns:56px 1fr auto;gap:10px}.conf{display:none}.body{padding-left:18px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="strip"><div class="strip-in">
+  <div class="mark">Ledger<span>Loop</span></div>
+  <div class="facts">
+    <div>run <b>demo</b></div>
+    <div>fixture <b>adversarial</b></div>
+    <div>records <b>250</b></div>
+    <div>seed <b>42</b></div>
+    <div>tiers <b>0,1,2,3</b></div>
+    <div>ingested <b>665</b> · quarantined <b>0</b></div>
+  </div>
+  <span class="keyless">no API key</span>
+</div></div>
+<div class="wrap">
+  <p class="thesis">An LLM touched <em>14 of 165</em> credits, and decided none of them.</p>
+  <p class="thesis-sub">Every proposal the model made was re-verified in Python against the
+  fee model and the settlement window before a rupee moved.</p>
+  <div class="stats"><div class="stat"><div class="stat-k">Auto-match</div><div class="stat-v">67.9%</div><div class="stat-n">112 of 165 credits posted</div></div><div class="stat"><div class="stat-k">Precision</div><div class="stat-v">100.0%</div><div class="stat-n">0 of 112 posted wrongly</div></div><div class="stat hero"><div class="stat-k">False-match rate</div><div class="stat-v">0.0%</div><div class="stat-n">the number this system optimises</div></div><div class="stat"><div class="stat-k">Value reconciled</div><div class="stat-v">₹34,25,696.96</div><div class="stat-n">₹33,23,847.87 still at risk</div></div></div>
+  <section><h2>The cascade</h2>
+    <p class="lede">Each tier only sees what the tier above it could not resolve.
+    Arithmetic runs first and settles the majority; the model is asked about what is
+    left.</p>
+    <div class="cascade"><div class="bar"><div class="seg" style="flex:22;background:var(--t0);animation-delay:0ms" title="Tier 0 · exact — 22 credits">22</div><div class="seg" style="flex:21;background:var(--t1);animation-delay:70ms" title="Tier 1 · tolerant — 21 credits">21</div><div class="seg" style="flex:55;background:var(--t2);animation-delay:140ms" title="Tier 2 · subset-sum — 55 credits">55</div><div class="seg" style="flex:14;background:var(--t3);animation-delay:210ms" title="Tier 3 · adjudicated — 14 credits">14</div><div class="seg residual" style="flex:53" title="Exception queue — 53 credits">53</div></div><div class="legend"><div><span class="swatch" style="background:var(--t0)"></span><div><b>Tier 0 · exact</b> · <span>reference or amount+date, unique on both sides</span></div></div><div><span class="swatch" style="background:var(--t1)"></span><div><b>Tier 1 · tolerant</b> · <span>fee model recomputed, window and fuzzy reference</span></div></div><div><span class="swatch" style="background:var(--t2)"></span><div><b>Tier 2 · subset-sum</b> · <span>batched payouts, declined when two subsets fit</span></div></div><div><span class="swatch" style="background:var(--t3)"></span><div><b>Tier 3 · adjudicated</b> · <span>model proposes, Python verifies, numbers win</span></div></div><div><span class="swatch" style="background:var(--border-firm)"></span><div><b>Exception queue</b> · <span>reason-coded, never guessed</span></div></div></div></div>
+  </section>
+  <section><h2>Adjudication — watch a credit go through Tier 3</h2><p class="lede">Each case shows the candidate pool the model was given, the exact prompt it received, the raw text it returned, and the gates running on that text in order. Every response was replayed from the committed cache — no network, no key, identical on every machine.</p><div class="theatre"><div class="picker" id="picker" role="tablist"></div><div class="stage-grid"><div class="pane"><div class="pane-h"><span class="step-n">1</span>The credit, and the pool it was given</div><div id="credit"></div><div class="pane-h" style="margin-top:20px"><span class="step-n">2</span>Prompt sent</div><pre id="prompt"></pre></div><div class="pane"><div class="pane-h"><span class="step-n">3</span>What the model returned</div><pre id="raw"></pre><div class="pane-h" style="margin-top:20px"><span class="step-n">4</span>Gates, in order, short-circuiting</div><div class="gates" id="gates"></div><div id="verdict"></div></div></div><div class="runbar"><button class="run" id="run">Run the gates</button><span class="runnote">replayed from cache · 0 API calls · 0 rupees</span></div></div></section>
+  <section><h2>Ablation — §9.2</h2><p class="lede">The same fixture, the same model, the same gates in both model arms. The cascade wins because the deterministic tiers mean the model is asked fewer questions — not because its gates are better.</p><div class="scroll"><table><thead><tr><th>Configuration</th><th class="r">Auto-match</th><th class="r">Precision</th><th class="r">False-match</th><th class="r">Adjudications</th><th class="r">Wrong</th></tr></thead><tbody><tr><td>T0 only</td><td class="r num">13.3%</td><td class="r num">100.0%</td><td class="r num"><span class="zero">0.0%</span></td><td class="r num">0</td><td class="r num">0</td></tr><tr><td>T0 + T1</td><td class="r num">26.1%</td><td class="r num">100.0%</td><td class="r num"><span class="zero">0.0%</span></td><td class="r num">0</td><td class="r num">0</td></tr><tr><td>T0 + T1 + T2</td><td class="r num">59.4%</td><td class="r num">100.0%</td><td class="r num"><span class="zero">0.0%</span></td><td class="r num">0</td><td class="r num">0</td></tr><tr class="win"><td>Full cascade</td><td class="r num">67.9%</td><td class="r num">100.0%</td><td class="r num"><span class="zero">0.0%</span></td><td class="r num">61</td><td class="r num">0</td></tr><tr class="lose"><td>LLM-only baseline</td><td class="r num">53.9%</td><td class="r num">98.9%</td><td class="r num"><span class="bad">1.1%</span></td><td class="r num">165</td><td class="r num">0</td></tr></tbody></table></div></section>
+  <section><h2>Exception queue — 108 open, ₹58,93,470.39 at risk</h2><p class="lede">Clustered by reason code and sorted by rupees at risk. Records sharing a code are one wrong assumption, not many problems.</p><div class="clusters"><div class="cl" style="--sev:var(--crit)"><div class="cl-top"><span class="code">POOL_TOO_LARGE</span><span class="count">&times;54</span><span class="risk">₹31,20,441.21</span></div><p class="cl-why">54 records share this code. Look for a common cause before working through them one at a time. Too many candidate settlements to search safely. Narrow the batch by date, or resolve by hand.</p><div class="meter"><i style="width:100.0%"></i></div></div><div class="cl" style="--sev:var(--crit)"><div class="cl-top"><span class="code">AMOUNT_BEYOND_TOLERANCE</span><span class="count">&times;19</span><span class="risk">₹12,45,235.68</span></div><p class="cl-why">19 records share this code. That is not 19 problems — it is most likely one wrong assumption in the fee model for this merchant. Correcting the model resolves the whole class at once.</p><div class="meter"><i style="width:39.9%"></i></div></div><div class="cl" style="--sev:var(--crit)"><div class="cl-top"><span class="code">LLM_INVALID_OUTPUT</span><span class="count">&times;19</span><span class="risk">₹10,12,998.53</span></div><p class="cl-why">19 responses were unusable. That is a systemic signal about the model or the prompt, not about the merchant&#x27;s data.</p><div class="meter"><i style="width:32.5%"></i></div></div><div class="cl" style="--sev:var(--warn)"><div class="cl-top"><span class="code">NO_CANDIDATE</span><span class="count">&times;11</span><span class="risk">₹3,97,828.20</span></div><p class="cl-why">11 records share this code. Look for a common cause before working through them one at a time. Look for a settlement outside the date window, or confirm this credit came from somewhere other than the gateway.</p><div class="meter"><i style="width:12.7%"></i></div></div><div class="cl" style="--sev:var(--muted)"><div class="cl-top"><span class="code">AMBIGUOUS_SUBSET</span><span class="count">&times;4</span><span class="risk">₹98,302.72</span></div><p class="cl-why">4 records share this code. Look for a common cause before working through them one at a time. Choose between the attached explanations. Both add up exactly, so the system will not pick one for you.</p><div class="meter"><i style="width:3.2%"></i></div></div><div class="cl" style="--sev:var(--muted)"><div class="cl-top"><span class="code">DUPLICATE_SUSPECTED</span><span class="count">&times;1</span><span class="risk">₹18,664.05</span></div><p class="cl-why">1 record(s). Confirm with the bank whether this credit was re-posted. The money may have arrived once and been reported twice.</p><div class="meter"><i style="width:0.6%"></i></div></div></div></section>
+  <section><h2>Provenance</h2><p class="lede">Every posted match carries the tier that decided it, the rule, the evidence, and the SHA-256 of every source row that fed the decision. Tier 3 additionally carries the model and prompt version, so a prompt change is visible in the trail rather than inferred.</p><div class="filters" id="filters"></div><div class="scroll" id="prov"><details class="prov"><summary><span class="tier" style="background:var(--t0)">T0</span><span><span class="txn">BNK00010</span> <span class="rule">→ STL00239</span></span><span class="conf">1.00</span><span class="caret">▶</span></summary><div class="body"><div class="ev"><div class="ev-f">narration_token</div><div class="ev-cmp"><span>RZRPY8886522</span><span class="arrow">↔</span><span>RZRPY8886522</span></div><div class="ev-n">normalised reference matched exactly and uniquely on both sides</div></div><div class="ev"><div class="ev-f">net_amount_paise</div><div class="ev-cmp"><span>4852847</span><span class="arrow">↔</span><span>4852847</span></div><div class="ev-n">credit equals the settlement exactly; the reference is not explaining a batch</div></div><div class="meta"><div>rule<b>T0-UTR-EXACT</b></div><div>model<b style="color:var(--muted)">none — arithmetic decided</b></div><div style="flex:1 1 260px">source fingerprints (sha-256)<b class="hash">a20e78ae41959ca1<br>e2f48f89d6d9d160</b></div></div></div></details><details class="prov"><summary><span class="tier" style="background:var(--t0)">T0</span><span><span class="txn">BNK00021</span> <span class="rule">→ STL00097</span></span><span class="conf">1.00</span><span class="caret">▶</span></summary><div class="body"><div class="ev"><div class="ev-f">narration_token</div><div class="ev-cmp"><span>RZRPY8127652</span><span class="arrow">↔</span><span>RZRPY8127652</span></div><div class="ev-n">normalised reference matched exactly and uniquely on both sides</div></div><div class="ev"><div class="ev-f">net_amount_paise</div><div class="ev-cmp"><span>1275028</span><span class="arrow">↔</span><span>1275028</span></div><div class="ev-n">credit equals the settlement exactly; the reference is not explaining a batch</div></div><div class="meta"><div>rule<b>T0-UTR-EXACT</b></div><div>model<b style="color:var(--muted)">none — arithmetic decided</b></div><div style="flex:1 1 260px">source fingerprints (sha-256)<b class="hash">2a6694e37226e055<br>35b52144cffa4e0e</b></div></div></div></details><details class="prov"><summary><span class="tier" style="background:var(--t0)">T0</span><span><span class="txn">BNK00024</span> <span class="rule">→ STL00124</span></span><span class="conf">1.00</span><span class="caret">▶</span></summary><div class="body"><div class="ev"><div class="ev-f">net_amount_paise</div><div class="ev-cmp"><span>962931</span><span class="arrow">↔</span><span>962931</span></div><div class="ev-n">amount and date pair unique on both sides</div></div><div class="ev"><div class="ev-f">value_date</div><div class="ev-cmp"><span>2026-08-07</span><span class="arrow">↔</span><span>2026-08-07</span></div><div class="ev-n">exact date agreement; no window applied at tier 0</div></div><div class="meta"><div>rule<b>T0-AMOUNT-DATE-UNIQUE</b></div><div>model<b style="color:var(--muted)">none — arithmetic decided</b></div><div style="flex:1 1 260px">source fingerprints (sha-256)<b class="hash">f68a9dbb8dae3ba4<br>1d34a0b1b18702ce</b></div></div></div></details><details class="prov"><summary><span class="tier" style="background:var(--t1)">T1</span><span><span class="txn">BNK00006</span> <span class="rule">→ STL00133</span></span><span class="conf">0.90</span><span class="caret">▶</span></summary><div class="body"><div class="ev"><div class="ev-f">expected_net_paise</div><div class="ev-cmp"><span>2979989</span><span class="arrow">↔</span><span>2979990</span></div><div class="ev-n">gross less MDR, GST and TDS, recomputed; within tolerance</div></div><div class="ev"><div class="ev-f">value_date</div><div class="ev-cmp"><span>2026-08-05</span><span class="arrow">↔</span><span>2026-08-05</span></div><div class="ev-n">inside 3 business days of settlement</div></div><div class="ev"><div class="ev-f">narration_token</div><div class="ev-cmp"><span>NEFT-CR/HDFC/RZRPY5030696/Acme Retail Private Limited/BLR</span><span class="arrow">↔</span><span>RZRPY5030696</span></div><div class="ev-n">reference recovered at edit distance 0</div></div><div class="meta"><div>rule<b>T1-TOLERANT</b></div><div>model<b style="color:var(--muted)">none — arithmetic decided</b></div><div style="flex:1 1 260px">source fingerprints (sha-256)<b class="hash">a0ecdfa234bbc472<br>b6db7d333cdd0ebf</b></div></div></div></details><details class="prov"><summary><span class="tier" style="background:var(--t1)">T1</span><span><span class="txn">BNK00014</span> <span class="rule">→ STL00081</span></span><span class="conf">0.99</span><span class="caret">▶</span></summary><div class="body"><div class="ev"><div class="ev-f">expected_net_paise</div><div class="ev-cmp"><span>3305120</span><span class="arrow">↔</span><span>3305117</span></div><div class="ev-n">gross less MDR, GST and TDS, recomputed; within tolerance</div></div><div class="ev"><div class="ev-f">value_date</div><div class="ev-cmp"><span>2026-08-06</span><span class="arrow">↔</span><span>2026-08-06</span></div><div class="ev-n">inside 3 business days of settlement</div></div><div class="ev"><div class="ev-f">narration_token</div><div class="ev-cmp"><span>NEFT-CR/HDFC/RZRPY3804760/KAVERI AGRO EXPORTS/HYD</span><span class="arrow">↔</span><span>RZRPY3804760</span></div><div class="ev-n">reference recovered at edit distance 0</div></div><div class="ev"><div class="ev-f">customer_name</div><div class="ev-cmp"><span>NEFT-CR/HDFC/RZRPY3804760/KAVERI AGRO EXPORTS/HYD</span><span class="arrow">↔</span><span>KAVERI AGRO EXPORTS</span></div><div class="ev-n">token-set ratio 100</div></div><div class="meta"><div>rule<b>T1-TOLERANT</b></div><div>model<b style="color:var(--muted)">none — arithmetic decided</b></div><div style="flex:1 1 260px">source fingerprints (sha-256)<b class="hash">04095956c26d83bb<br>7ba20f00f226407e</b></div></div></div></details><details class="prov"><summary><span class="tier" style="background:var(--t1)">T1</span><span><span class="txn">BNK00016</span> <span class="rule">→ STL00225</span></span><span class="conf">0.99</span><span class="caret">▶</span></summary><div class="body"><div class="ev"><div class="ev-f">expected_net_paise</div><div class="ev-cmp"><span>3296848</span><span class="arrow">↔</span><span>3296846</span></div><div class="ev-n">gross less MDR, GST and TDS, recomputed; within tolerance</div></div><div class="ev"><div class="ev-f">value_date</div><div class="ev-cmp"><span>2026-08-07</span><span class="arrow">↔</span><span>2026-08-06</span></div><div class="ev-n">inside 3 business days of settlement</div></div><div class="ev"><div class="ev-f">narration_token</div><div class="ev-cmp"><span>NEFT-CR/HDFC/RZRPY7601732/Kaveri Agro Exports/BLR</span><span class="arrow">↔</span><span>RZRPY7601732</span></div><div class="ev-n">reference recovered at edit distance 0</div></div><div class="ev"><div class="ev-f">customer_name</div><div class="ev-cmp"><span>NEFT-CR/HDFC/RZRPY7601732/Kaveri Agro Exports/BLR</span><span class="arrow">↔</span><span>KAVERI AGRO EXPORTS</span></div><div class="ev-n">token-set ratio 100</div></div><div class="meta"><div>rule<b>T1-TOLERANT</b></div><div>model<b style="color:var(--muted)">none — arithmetic decided</b></div><div style="flex:1 1 260px">source fingerprints (sha-256)<b class="hash">6b95af63d5daf53d<br>b88a8520eab82cec</b></div></div></div></details><details class="prov"><summary><span class="tier" style="background:var(--t2)">T2</span><span><span class="txn">BNK00001</span> <span class="rule">→ STL00015, STL00039</span></span><span class="conf">0.95</span><span class="caret">▶</span></summary><div class="body"><div class="ev"><div class="ev-f">net_amount_paise</div><div class="ev-cmp"><span>6183864</span><span class="arrow">↔</span><span>STL00015</span></div><div class="ev-n">batch member contributing 4580512 paise</div></div><div class="ev"><div class="ev-f">net_amount_paise</div><div class="ev-cmp"><span>6183864</span><span class="arrow">↔</span><span>STL00039</span></div><div class="ev-n">batch member contributing 1603353 paise</div></div><div class="ev"><div class="ev-f">subset_sum</div><div class="ev-cmp"><span>6183864</span><span class="arrow">↔</span><span>6183865</span></div><div class="ev-n">exactly one subset of 8 candidates explains this credit</div></div><div class="meta"><div>rule<b>T2-SUBSET-SUM</b></div><div>model<b style="color:var(--muted)">none — arithmetic decided</b></div><div style="flex:1 1 260px">source fingerprints (sha-256)<b class="hash">161da268c45b2038<br>ea2dc515be3de049<br>7f35ebcc1c354628</b></div></div></div></details><details class="prov"><summary><span class="tier" style="background:var(--t2)">T2</span><span><span class="txn">BNK00002</span> <span class="rule">→ STL00075</span></span><span class="conf">0.95</span><span class="caret">▶</span></summary><div class="body"><div class="ev"><div class="ev-f">net_amount_paise</div><div class="ev-cmp"><span>3903010</span><span class="arrow">↔</span><span>STL00075</span></div><div class="ev-n">batch member contributing 3903007 paise</div></div><div class="ev"><div class="ev-f">subset_sum</div><div class="ev-cmp"><span>3903010</span><span class="arrow">↔</span><span>3903007</span></div><div class="ev-n">exactly one subset of 7 candidates explains this credit</div></div><div class="meta"><div>rule<b>T2-SUBSET-SUM</b></div><div>model<b style="color:var(--muted)">none — arithmetic decided</b></div><div style="flex:1 1 260px">source fingerprints (sha-256)<b class="hash">e4efb65b0199dc33<br>a6ad08cbce8ce61f</b></div></div></div></details><details class="prov"><summary><span class="tier" style="background:var(--t2)">T2</span><span><span class="txn">BNK00003</span> <span class="rule">→ STL00083</span></span><span class="conf">0.95</span><span class="caret">▶</span></summary><div class="body"><div class="ev"><div class="ev-f">net_amount_paise</div><div class="ev-cmp"><span>3989089</span><span class="arrow">↔</span><span>STL00083</span></div><div class="ev-n">batch member contributing 3989090 paise</div></div><div class="ev"><div class="ev-f">subset_sum</div><div class="ev-cmp"><span>3989089</span><span class="arrow">↔</span><span>3989090</span></div><div class="ev-n">exactly one subset of 1 candidates explains this credit</div></div><div class="meta"><div>rule<b>T2-SUBSET-SUM</b></div><div>model<b style="color:var(--muted)">none — arithmetic decided</b></div><div style="flex:1 1 260px">source fingerprints (sha-256)<b class="hash">0d3968e632865171<br>8f600433ec013712</b></div></div></div></details><details class="prov"><summary><span class="tier" style="background:var(--t3)">T3</span><span><span class="txn">BNK00019</span> <span class="rule">→ STL00055</span></span><span class="conf">1.00</span><span class="caret">▶</span></summary><div class="body"><div class="ev"><div class="ev-f">amount credited</div><div class="ev-cmp"><span>3548251 paise</span><span class="arrow">↔</span><span>3548252 paise</span></div><div class="ev-n">Amounts match within a 1 paise rounding tolerance.</div></div><div class="ev"><div class="ev-f">value date vs settlement date</div><div class="ev-cmp"><span>2026-08-10</span><span class="arrow">↔</span><span>2026-08-07</span></div><div class="ev-n">Bank date is 3 business days after settlement, within the 3-day window.</div></div><div class="ev"><div class="ev-f">customer / narration</div><div class="ev-cmp"><span>TRIDENT MOTORS LTD</span><span class="arrow">↔</span><span>TRIDENT MOTORS LTD</span></div><div class="ev-n">Customer name in narration matches the settlement customer exactly.</div></div><div class="meta"><div>rule<b>T3-ADJUDICATED</b></div><div>model<b>gemini-3.5-flash-lite · v1</b></div><div style="flex:1 1 260px">source fingerprints (sha-256)<b class="hash">52d613ce9aa4378c<br>dea5e60c84668c05</b></div></div></div></details><details class="prov"><summary><span class="tier" style="background:var(--t3)">T3</span><span><span class="txn">BNK00022</span> <span class="rule">→ STL00099</span></span><span class="conf">1.00</span><span class="caret">▶</span></summary><div class="body"><div class="ev"><div class="ev-f">amount credited</div><div class="ev-cmp"><span>3625099 paise</span><span class="arrow">↔</span><span>3625098 paise</span></div><div class="ev-n">Amounts match within standard 1-paise rounding tolerance for gateway settlements.</div></div><div class="ev"><div class="ev-f">reference</div><div class="ev-cmp"><span>RZRPY3550174</span><span class="arrow">↔</span><span>RZRPY3550174</span></div><div class="ev-n">Gateway payout reference ID in the bank narration matches STL00099 exactly.</div></div><div class="ev"><div class="ev-f">customer</div><div class="ev-cmp"><span>MAHALAXMI STORES</span><span class="arrow">↔</span><span>MAHALAXMI STORES</span></div><div class="ev-n">Merchant/customer name in bank narration matches STL00099.</div></div><div class="ev"><div class="ev-f">value date</div><div class="ev-cmp"><span>2026-08-07</span><span class="arrow">↔</span><span>2026-08-07</span></div><div class="ev-n">Bank credit date matches the settlement date of STL00099.</div></div><div class="meta"><div>rule<b>T3-ADJUDICATED</b></div><div>model<b>gemini-3.5-flash-lite · v1</b></div><div style="flex:1 1 260px">source fingerprints (sha-256)<b class="hash">f221c82d2883e836<br>adeaf0c3ede43b3b</b></div></div></div></details><details class="prov"><summary><span class="tier" style="background:var(--t3)">T3</span><span><span class="txn">BNK00036</span> <span class="rule">→ STL00220</span></span><span class="conf">0.95</span><span class="caret">▶</span></summary><div class="body"><div class="ev"><div class="ev-f">amount</div><div class="ev-cmp"><span>4595881 paise</span><span class="arrow">↔</span><span>4595884 paise</span></div><div class="ev-n">Amounts match within expected rounding/fee tolerances (diff of 3 paise).</div></div><div class="ev"><div class="ev-f">reference</div><div class="ev-cmp"><span>MMTCRrzrpy13429</span><span class="arrow">↔</span><span>RZRPY1342901</span></div><div class="ev-n">Bank narration contains &#x27;rzrpy13429&#x27;, which matches the core of settlement reference RZRPY1342901.</div></div><div class="ev"><div class="ev-f">customer / narration</div><div class="ev-cmp"><span>VERTEX HEALTHCARE Limited</span><span class="arrow">↔</span><span>VERTEX HEALTHCARE LTD</span></div><div class="ev-n">Merchant/customer name in the bank narration matches the settlement customer name.</div></div><div class="ev"><div class="ev-f">date</div><div class="ev-cmp"><span>2026-08-10</span><span class="arrow">↔</span><span>2026-08-10</span></div><div class="ev-n">Bank value date matches the settlement date.</div></div><div class="meta"><div>rule<b>T3-ADJUDICATED</b></div><div>model<b>gemini-3.5-flash-lite · v1</b></div><div style="flex:1 1 260px">source fingerprints (sha-256)<b class="hash">5f55a99d444c8e76<br>1b73bf68bc70a0bb</b></div></div></div></details></div></section>
+  <p class="foot">Generated by <code>ledgerloop report --html</code> from run
+  <code>demo</code>. Every figure was scored against the generator's ground
+  truth; none was typed by hand.</p>
+</div>
+<script>const CASES=[{"txn":"BNK00137","credit":4700494,"date":"2026-08-28","narration":"NEFT-CR/HDFC/BLUEPEAK LOGISTICS PVT LTD/MUM","n":8,"cands":[{"id":"STL00073","cust":"ORBIT DIGITAL PVT LTD","gross":2136286},{"id":"STL00084","cust":"SUNRISE PACKAGING PVT LTD","gross":1627836},{"id":"STL00100","cust":"BLUEPEAK LOGISTICS PVT LTD","gross":4319439},{"id":"STL00143","cust":"BLUEPEAK LOGISTICS PVT LTD","gross":4545382},{"id":"STL00145","cust":"BLUEPEAK LOGISTICS PVT LTD","gross":2140874}],"prompt":"You are reconciling one bank credit against a list of candidate gateway settlements for an Indian merchant.\n\nTHE BANK CREDIT\n  transaction id : BNK00137\n  value date     : 2026-08-28\n  amount credited: 4700494 paise\n  narration      : NEFT-CR/HDFC/BLUEPEAK LOGISTICS PVT LTD/MUM\n\nThe narration is free text written by the bank. Any reference it contains may be prefixed, truncated, case-varied or absent entirely.\n\nHOW THE AMOUNTS RELATE\n  net = gross - MDR fee - GST on the fee - TDS\nA credit may also cover several settlements at once, in which case it equals the sum of their net amounts. A credit normally lands on the settlement date or within 3 business days after it.\n\nCANDIDATE SETTLEMENTS\n  STL00073 | net 2132026 paise | settled 2026-08-28 | customer ORBIT DIGITAL PVT LTD | reference RZRPY3024795 | status captured\n  STL00084 | net 1587791 paise | settled 2026-08-27 | customer SUNRISE PACKAGING PVT LTD | reference RZRPY8278103 | status captured\n  STL00100 | net 4294732 paise | settled 2026-08-26 | customer BLUEPEAK LOGISTICS PVT LTD | reference RZRPY7767125 | status refunded\n  STL00143 | net 4540837 paise | settled 2026-08-28 | customer BLUEPEAK LOGISTICS PVT LTD | reference RZRPY2332576 | status captured\n  STL00145 | net 2136609 paise | settled 2026-08-28 | customer BLUEPEAK LOGISTICS PVT LTD | reference RZRPY3499660 | status captured\n  STL00171 | net 2175058 paise | settled 2026-08-25 | customer SUNRISE PACKAGING PVT LTD | reference RZRPY2190440 | status captured\n  STL00230 | net 4132045 paise | settled 2026-08-27 | customer SUNRISE PACKAGING PVT LTD | reference RZRPY3615110 | status captured\n  STL00235 | net 4700496 paise | settled 2026-08-28 | customer BLUEPEAK LOGISTICS PVT LTD | reference RZRPY5396482 | status captured\n\nYOUR TASK\nDecide which of the candidates above, if any, this credit pays for.\n\nRULES\n1. You may only name settlement ids from the list above. Never invent one. If none fit, return NO_MATCH with a reason.\n2. Do not compute, adjust or reconcile amounts. They are recomputed independently in Python and that recomputation decides; your answer is evidence, not a verdict.\n3. If two different sets of settlements would both explain this credit, return NO_MATCH and say so. Ambiguity is resolved by a human, never by you.\n4. Give per-field evidence for every correspondence you claim.\n\nReply with JSON only, matching this shape:\n{\"decision\": \"MATCH\" | \"NO_MATCH\",\n  \"matched_settlement_ids\": [\"...\"],\n  \"evidence\": [{\"field_name\": \"...\", \"bank_value\": \"...\", \"settlement_value\": \"...\", \"reasoning\": \"under 200 chars\"}],\n  \"confidence\": 0.0 to 1.0,\n  \"unresolved_reason\": \"required when NO_MATCH\"}","raw":"```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\"STL00235\"],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount credited\",\n      \"bank_value\": \"4700494 paise\",\n      \"settlement_value\": \"4700496 paise\",\n      \"reasoning\": \"Amounts match within an acceptable rounding/fee tolerance of 2 paise.\"\n    },\n    {\n      \"field_name\": \"customer / narration\",\n      \"bank_value\": \"BLUEPEAK LOGISTICS PVT LTD\",\n      \"settlement_value\": \"BLUEPEAK LOGISTICS PVT LTD\",\n      \"reasoning\": \"Customer name in the bank narration matches the settlement customer.\"\n    },\n    {\n      \"field_name\": \"value date\",\n      \"bank_value\": \"2026-08-28\",\n      \"settlement_value\": \"2026-08-28\",\n      \"reasoning\": \"Bank credit value date matches the settlement date.\"\n    }\n  ],\n  \"confidence\": 0.98,\n  \"unresolved_reason\": null\n}\n```","stages":[{"gate":"schema","ok":true,"why":""},{"gate":"membership","ok":true,"why":""},{"gate":"arithmetic","ok":true,"why":""},{"gate":"confidence","ok":true,"why":""}],"verdict":"POSTED","scripted":false},{"txn":"BNK00128","credit":5313950,"date":"2026-08-28","narration":"NEFT-CR/HDFC/Sunrise Packaging Private Limited/DEL","n":8,"cands":[{"id":"STL00013","cust":"NIMBUS TEXTILES LTD","gross":806316},{"id":"STL00045","cust":"ACME RETAIL PVT LTD","gross":1517984},{"id":"STL00046","cust":"ACME RETAIL PVT LTD","gross":2510840},{"id":"STL00047","cust":"NIMBUS TEXTILES LTD","gross":1570363},{"id":"STL00084","cust":"SUNRISE PACKAGING PVT LTD","gross":1627836}],"prompt":"You are reconciling one bank credit against a list of candidate gateway settlements for an Indian merchant.\n\nTHE BANK CREDIT\n  transaction id : BNK00128\n  value date     : 2026-08-28\n  amount credited: 5313950 paise\n  narration      : NEFT-CR/HDFC/Sunrise Packaging Private Limited/DEL\n\nThe narration is free text written by the bank. Any reference it contains may be prefixed, truncated, case-varied or absent entirely.\n\nHOW THE AMOUNTS RELATE\n  net = gross - MDR fee - GST on the fee - TDS\nA credit may also cover several settlements at once, in which case it equals the sum of their net amounts. A credit normally lands on the settlement date or within 3 business days after it.\n\nCANDIDATE SETTLEMENTS\n  STL00013 | net 776967 paise | settled 2026-08-26 | customer NIMBUS TEXTILES LTD | reference RZRPY2059099 | status captured\n  STL00045 | net 1509301 paise | settled 2026-08-26 | customer ACME RETAIL PVT LTD | reference RZRPY1304151 | status captured\n  STL00046 | net 2449073 paise | settled 2026-08-27 | customer ACME RETAIL PVT LTD | reference RZRPY3611710 | status captured\n  STL00047 | net 1542851 paise | settled 2026-08-25 | customer NIMBUS TEXTILES LTD | reference RZRPY8907726 | status captured\n  STL00084 | net 1587791 paise | settled 2026-08-27 | customer SUNRISE PACKAGING PVT LTD | reference RZRPY8278103 | status captured\n  STL00171 | net 2175058 paise | settled 2026-08-25 | customer SUNRISE PACKAGING PVT LTD | reference RZRPY2190440 | status captured\n  STL00230 | net 4132045 paise | settled 2026-08-27 | customer SUNRISE PACKAGING PVT LTD | reference RZRPY3615110 | status captured\n  STL00232 | net 4921015 paise | settled 2026-08-25 | customer SUNRISE PACKAGING PVT LTD | reference RZRPY5153845 | status captured\n\nYOUR TASK\nDecide which of the candidates above, if any, this credit pays for.\n\nRULES\n1. You may only name settlement ids from the list above. Never invent one. If none fit, return NO_MATCH with a reason.\n2. Do not compute, adjust or reconcile amounts. They are recomputed independently in Python and that recomputation decides; your answer is evidence, not a verdict.\n3. If two different sets of settlements would both explain this credit, return NO_MATCH and say so. Ambiguity is resolved by a human, never by you.\n4. Give per-field evidence for every correspondence you claim.\n\nReply with JSON only, matching this shape:\n{\"decision\": \"MATCH\" | \"NO_MATCH\",\n  \"matched_settlement_ids\": [\"...\"],\n  \"evidence\": [{\"field_name\": \"...\", \"bank_value\": \"...\", \"settlement_value\": \"...\", \"reasoning\": \"under 200 chars\"}],\n  \"confidence\": 0.0 to 1.0,\n  \"unresolved_reason\": \"required when NO_MATCH\"}","raw":"```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00084\",\n    \"STL00230\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount credited\",\n      \"bank_value\": \"5313950 paise\",\n      \"settlement_value\": \"5313950 paise (1587791 + 4132045)\",\n      \"reasoning\": \"Sum of net amounts for STL00084 and STL00230 exactly equals the bank credit amount.\"\n    },\n    {\n      \"field_name\": \"customer / narration\",\n      \"bank_value\": \"Sunrise Packaging Private Limited\",\n      \"settlement_value\": \"SUNRISE PACKAGING PVT LTD\",\n      \"reasoning\": \"Customer name in narration matches the company name for both candidate settlements.\"\n    },\n    {\n      \"field_name\": \"value date / settlement date\",\n      \"bank_value\": \"2026-08-28\",\n      \"settlement_value\": \"2026-08-27\",\n      \"reasoning\": \"Settlements occurred on 2026-08-27, which is within 3 business days prior to the bank credit date.\"\n    }\n  ],\n  \"confidence\": 1.0,\n  \"unresolved_reason\": null\n}\n```","stages":[{"gate":"schema","ok":true,"why":""},{"gate":"membership","ok":true,"why":""},{"gate":"arithmetic","ok":false,"why":"proposed settlements sum to 5719836 paise against a credit of 5313950; the numbers decide, not the model"}],"verdict":"AMOUNT_BEYOND_TOLERANCE","scripted":false},{"txn":"BNK00109","credit":3520552,"date":"2026-08-24","narration":"NEFT-CR/HDFC/NIMBUS TEXTILES LTD/HYD","n":8,"cands":[{"id":"STL00020","cust":"TRIDENT MOTORS LTD","gross":755171},{"id":"STL00022","cust":"TRIDENT MOTORS LTD","gross":3220363},{"id":"STL00028","cust":"ACME RETAIL PVT LTD","gross":2649723},{"id":"STL00044","cust":"TRIDENT MOTORS LTD","gross":2347149},{"id":"STL00065","cust":"NIMBUS TEXTILES LTD","gross":3445154}],"prompt":"You are reconciling one bank credit against a list of candidate gateway settlements for an Indian merchant.\n\nTHE BANK CREDIT\n  transaction id : BNK00109\n  value date     : 2026-08-24\n  amount credited: 3520552 paise\n  narration      : NEFT-CR/HDFC/NIMBUS TEXTILES LTD/HYD\n\nThe narration is free text written by the bank. Any reference it contains may be prefixed, truncated, case-varied or absent entirely.\n\nHOW THE AMOUNTS RELATE\n  net = gross - MDR fee - GST on the fee - TDS\nA credit may also cover several settlements at once, in which case it equals the sum of their net amounts. A credit normally lands on the settlement date or within 3 business days after it.\n\nCANDIDATE SETTLEMENTS\n  STL00020 | net 736594 paise | settled 2026-08-24 | customer TRIDENT MOTORS LTD | reference RZRPY1866724 | status captured\n  STL00022 | net 3217143 paise | settled 2026-08-19 | customer TRIDENT MOTORS LTD | reference RZRPY6338126 | status captured\n  STL00028 | net 2584540 paise | settled 2026-08-20 | customer ACME RETAIL PVT LTD | reference RZRPY3411796 | status captured\n  STL00044 | net 2342678 paise | settled 2026-08-19 | customer TRIDENT MOTORS LTD | reference RZRPY4782648 | status captured\n  STL00065 | net 3384795 paise | settled 2026-08-24 | customer NIMBUS TEXTILES LTD | reference RZRPY2540265 | status captured\n  STL00147 | net 1501770 paise | settled 2026-08-24 | customer NIMBUS TEXTILES LTD | reference RZRPY3364159 | status captured\n  STL00238 | net 1020196 paise | settled 2026-08-19 | customer ACME RETAIL PVT LTD | reference RZRPY8640555 | status captured\n  STL00241 | net 887656 paise | settled 2026-08-19 | customer NIMBUS TEXTILES LTD | reference RZRPY6799548 | status captured\n\nYOUR TASK\nDecide which of the candidates above, if any, this credit pays for.\n\nRULES\n1. You may only name settlement ids from the list above. Never invent one. If none fit, return NO_MATCH with a reason.\n2. Do not compute, adjust or reconcile amounts. They are recomputed independently in Python and that recomputation decides; your answer is evidence, not a verdict.\n3. If two different sets of settlements would both explain this credit, return NO_MATCH and say so. Ambiguity is resolved by a human, never by you.\n4. Give per-field evidence for every correspondence you claim.\n\nReply with JSON only, matching this shape:\n{\"decision\": \"MATCH\" | \"NO_MATCH\",\n  \"matched_settlement_ids\": [\"...\"],\n  \"evidence\": [{\"field_name\": \"...\", \"bank_value\": \"...\", \"settlement_value\": \"...\", \"reasoning\": \"under 200 chars\"}],\n  \"confidence\": 0.0 to 1.0,\n  \"unresolved_reason\": \"required when NO_MATCH\"}","raw":"```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\"STL00065\"],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount credited\",\n      \"bank_value\": \"3520552 paise\",\n      \"settlement_value\": \"3384795 paise\",\n      \"reasoning\": \"Wait, checking sums... STL00065 (3384795) + STL00147 (1501770) != 3520552. Let's check STL00065 + others? Actually, 3384795 is not 3520552. Let's re-verify amounts: STL00065 net is 3384795. Wait, 3520552 matches... none single. Let's check combinations: STL00020 (736594) + STL00241 (887656) + ? No. Wait, let's look at NIMBUS TEXTILES LTD settlements: STL00065 (3384795), STL00147 (1501770), STL00241 (887656). None sum to 3520552 directly except let's check if any subset sums to 3520552. 3520552. Wait! STL00065 is 3384795. Is there a combination? Let's check STL00065 and others. Wait, 3384795 + some fee? No, bank credit is net. Let's check if 3520552 matches a single settlement or combination. Actually, none of the individual amounts match 3520552. Wait, let's re-read: STL00065 settled 2026-08-24, value date 2026-08-24. Amount 3384795 vs 3520552. Is there a mismatch? Let's output NO_MATCH due to amount mismatch or ambiguity.\"\n    }\n  ],\n  \"confidence\": 0.0,\n  \"unresolved_reason\": \"No single settlement or exact combination of net amounts matches the bank credit amount of 3520552 paise.\"\n}\n```","stages":[{"gate":"schema","ok":false,"why":"response did not validate against the contract: 1 validation error for Adjudication\nevidence.0.reasoning\n  String should have at most 200 characters [type=string_too_long, input_value=\"Wait, checking sums... S... mismatch or ambiguity.\", input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_too_long"}],"verdict":"LLM_INVALID_OUTPUT","scripted":false},{"txn":"BNK00137","credit":4700494,"date":"2026-08-28","narration":"NEFT-CR/HDFC/BLUEPEAK LOGISTICS PVT LTD/MUM","n":8,"cands":[{"id":"STL00073","cust":"ORBIT DIGITAL PVT LTD","gross":2136286},{"id":"STL00084","cust":"SUNRISE PACKAGING PVT LTD","gross":1627836},{"id":"STL00100","cust":"BLUEPEAK LOGISTICS PVT LTD","gross":4319439},{"id":"STL00143","cust":"BLUEPEAK LOGISTICS PVT LTD","gross":4545382},{"id":"STL00145","cust":"BLUEPEAK LOGISTICS PVT LTD","gross":2140874}],"prompt":"You are reconciling one bank credit against a list of candidate gateway settlements for an Indian merchant.\n\nTHE BANK CREDIT\n  transaction id : BNK00137\n  value date     : 2026-08-28\n  amount credited: 4700494 paise\n  narration      : NEFT-CR/HDFC/BLUEPEAK LOGISTICS PVT LTD/MUM\n\nThe narration is free text written by the bank. Any reference it contains may be prefixed, truncated, case-varied or absent entirely.\n\nHOW THE AMOUNTS RELATE\n  net = gross - MDR fee - GST on the fee - TDS\nA credit may also cover several settlements at once, in which case it equals the sum of their net amounts. A credit normally lands on the settlement date or within 3 business days after it.\n\nCANDIDATE SETTLEMENTS\n  STL00073 | net 2132026 paise | settled 2026-08-28 | customer ORBIT DIGITAL PVT LTD | reference RZRPY3024795 | status captured\n  STL00084 | net 1587791 paise | settled 2026-08-27 | customer SUNRISE PACKAGING PVT LTD | reference RZRPY8278103 | status captured\n  STL00100 | net 4294732 paise | settled 2026-08-26 | customer BLUEPEAK LOGISTICS PVT LTD | reference RZRPY7767125 | status refunded\n  STL00143 | net 4540837 paise | settled 2026-08-28 | customer BLUEPEAK LOGISTICS PVT LTD | reference RZRPY2332576 | status captured\n  STL00145 | net 2136609 paise | settled 2026-08-28 | customer BLUEPEAK LOGISTICS PVT LTD | reference RZRPY3499660 | status captured\n  STL00171 | net 2175058 paise | settled 2026-08-25 | customer SUNRISE PACKAGING PVT LTD | reference RZRPY2190440 | status captured\n  STL00230 | net 4132045 paise | settled 2026-08-27 | customer SUNRISE PACKAGING PVT LTD | reference RZRPY3615110 | status captured\n  STL00235 | net 4700496 paise | settled 2026-08-28 | customer BLUEPEAK LOGISTICS PVT LTD | reference RZRPY5396482 | status captured\n\nYOUR TASK\nDecide which of the candidates above, if any, this credit pays for.\n\nRULES\n1. You may only name settlement ids from the list above. Never invent one. If none fit, return NO_MATCH with a reason.\n2. Do not compute, adjust or reconcile amounts. They are recomputed independently in Python and that recomputation decides; your answer is evidence, not a verdict.\n3. If two different sets of settlements would both explain this credit, return NO_MATCH and say so. Ambiguity is resolved by a human, never by you.\n4. Give per-field evidence for every correspondence you claim.\n\nReply with JSON only, matching this shape:\n{\"decision\": \"MATCH\" | \"NO_MATCH\",\n  \"matched_settlement_ids\": [\"...\"],\n  \"evidence\": [{\"field_name\": \"...\", \"bank_value\": \"...\", \"settlement_value\": \"...\", \"reasoning\": \"under 200 chars\"}],\n  \"confidence\": 0.0 to 1.0,\n  \"unresolved_reason\": \"required when NO_MATCH\"}","raw":"```json\n{\n  \"decision\": \"MATCH\",\n  \"matched_settlement_ids\": [\n    \"STL00073\",\n    \"STL99999\"\n  ],\n  \"evidence\": [\n    {\n      \"field_name\": \"amount credited\",\n      \"bank_value\": \"4700494 paise\",\n      \"settlement_value\": \"4700494 paise\",\n      \"reasoning\": \"The first settlement accounts for the credit; the second covers the residual fee.\"\n    }\n  ],\n  \"confidence\": 0.97\n}\n```","stages":[{"gate":"schema","ok":true,"why":""},{"gate":"membership","ok":false,"why":"response named STL99999, which was not in the candidate set; the whole response is discarded"}],"verdict":"LLM_INVALID_OUTPUT","scripted":true}];
+var VC={POSTED:"var(--ok)",AMOUNT_BEYOND_TOLERANCE:"var(--warn)",
+LLM_INVALID_OUTPUT:"var(--crit)",LOW_CONFIDENCE:"var(--warn)"};
+var BLURB={"POSTED": "All checks held. The match is posted with full provenance.", "AMOUNT_BEYOND_TOLERANCE": "The model asserted a total that does not add up. Python recomputed it and refused.", "LLM_INVALID_OUTPUT": "The response never became a proposal. Nothing was posted, and there is no retry.", "LOW_CONFIDENCE": "The model was not confident enough to act on. Sent to a human."};
+var GL={schema:"Schema",membership:"Membership",arithmetic:"Arithmetic",confidence:"Confidence"};
+var GW={"schema": "Does it satisfy the output contract?", "membership": "Is every id from the candidate set it was given?", "arithmetic": "Do the numbers reconcile, recomputed in Python?", "confidence": "Is it confident enough to act on?"};
+var ALL=["schema","membership","arithmetic","confidence"];
+var sel=0,timer=null;
+function money(p){var s=(p/100).toFixed(2),a=s.split("."),i=a[0],d=a[1];
+var l=i.slice(-3),r=i.slice(0,-3);
+return "₹"+(r?r.replace(/\B(?=(\d{2})+(?!\d))/g,",")+",":"")+l+"."+d;}
+function e2(s){return String(s).replace(/[&<>]/g,function(m){
+return {"&":"&amp;","<":"&lt;",">":"&gt;"}[m];});}
+var picker=document.getElementById("picker");
+if(picker&&CASES.length){
+picker.innerHTML=CASES.map(function(c,i){
+ var sub=c.verdict==="POSTED"?"posted":
+  c.verdict==="AMOUNT_BEYOND_TOLERANCE"?"rejected · arithmetic":
+  (c.stages.length>1?"rejected · membership":"rejected · schema");
+ return '<button class="pick" role="tab" aria-selected="'+(i===0)+'" data-i="'+i+'" '+
+  'style="--dot:'+VC[c.verdict]+'"><div class="pick-t">'+e2(c.txn)+
+  (c.scripted?' <span class="tag-scripted">scripted</span>':'')+'</div>'+
+  '<div class="pick-s">'+sub+'</div></button>';}).join("");
+function drawGates(upto){var c=CASES[sel];
+document.getElementById("gates").innerHTML=ALL.map(function(g,i){
+ var st=null,k;for(k=0;k<c.stages.length;k++){if(c.stages[k].gate===g){st=c.stages[k];break;}}
+ var reached=st&&i<=upto;
+ var cls=!reached?(st?"":"skip"):(st.ok?"pass":"fail");
+ var mark=!reached?String(i+1):(st.ok?"✓":"✕");
+ var why=(reached&&st.why)?st.why:GW[g];
+ return '<div class="gate '+(reached?"on ":"")+cls+'"><div class="mk">'+mark+'</div>'+
+  '<div><div class="gate-n">'+GL[g]+'</div><div class="gate-d">'+e2(why)+
+  '</div></div></div>';}).join("");}
+function showVerdict(){var c=CASES[sel];
+document.getElementById("verdict").innerHTML='<div class="verdict" style="--vc:'+
+ VC[c.verdict]+'"><b>'+e2(c.verdict)+'</b><span>'+e2(BLURB[c.verdict]||"")+'</span></div>';
+document.getElementById("run").textContent="Run again";}
+function render(){var c=CASES[sel],picks=document.querySelectorAll(".pick"),i;
+for(i=0;i<picks.length;i++)picks[i].setAttribute("aria-selected",i===sel);
+document.getElementById("credit").innerHTML='<div class="credit-line">'+money(c.credit)+
+ '</div><div class="credit-sub">'+e2(c.txn)+' · '+e2(c.date)+' · '+
+ e2(c.narration)+'</div><div class="pool">'+c.cands.map(function(x){
+  return '<div class="pool-r"><b>'+e2(x.id)+'</b><span>'+e2(x.cust)+'</span><b>'+
+   money(x.gross)+'</b></div>';}).join("")+
+ (c.n>c.cands.length?'<div class="pool-more">+ '+(c.n-c.cands.length)+
+  ' more candidates ranked and sent</div>':'')+'</div>';
+document.getElementById("prompt").textContent=c.prompt;
+var raw=e2(c.raw);
+for(var k=0;k<c.stages.length;k++){var s=c.stages[k];
+ if(!s.ok&&s.gate==="membership"&&s.why){raw=raw;}}
+document.getElementById("raw").innerHTML=raw;
+drawGates(-1);document.getElementById("verdict").innerHTML="";
+document.getElementById("run").textContent="Run the gates";}
+function play(){clearInterval(timer);var c=CASES[sel],i=0;
+document.getElementById("verdict").innerHTML="";drawGates(-1);
+if(matchMedia("(prefers-reduced-motion: reduce)").matches){
+ drawGates(c.stages.length-1);showVerdict();return;}
+var step=function(){drawGates(i);
+ if(i>=c.stages.length-1){clearInterval(timer);showVerdict();}i++;};
+step();timer=setInterval(step,640);}
+picker.addEventListener("click",function(ev){var b=ev.target.closest(".pick");if(!b)return;
+clearInterval(timer);sel=+b.dataset.i;render();});
+document.getElementById("run").addEventListener("click",play);
+render();}
+var filters=document.getElementById("filters");
+if(filters){var rows=document.querySelectorAll("details.prov");
+filters.innerHTML=["All tiers","T0","T1","T2","T3"].map(function(l,i){
+ return '<button class="chip" aria-pressed="'+(i===0)+'" data-t="'+(i-1)+'">'+l+
+  '</button>';}).join("");
+filters.addEventListener("click",function(ev){var b=ev.target.closest(".chip");if(!b)return;
+var chips=document.querySelectorAll(".chip"),i;
+for(i=0;i<chips.length;i++)chips[i].setAttribute("aria-pressed","false");
+b.setAttribute("aria-pressed","true");var t=+b.dataset.t;
+for(i=0;i<rows.length;i++){var tag=rows[i].querySelector(".tier").textContent;
+ rows[i].hidden=(t>=0&&tag!=="T"+t);}});}
+</script>
+</body>
+</html>

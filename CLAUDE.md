@@ -31,7 +31,7 @@ These are the thesis of the project. Do not "improve" them without asking.
 make setup     # install deps
 make test      # pytest
 make lint      # ruff + mypy --strict on ledgerloop/cascade and ledgerloop/llm
-make demo      # generate → reconcile → report on `adversarial`, no API key needed
+make demo      # generate → reconcile → report + results/report.html, no key needed
 make eval      # full ablation across fixtures, writes results/metrics.md
 ```
 
@@ -70,8 +70,17 @@ SQLite app); ORMs beyond SQLAlchemy Core; fine-tuning; multi-currency; auth or u
 
 ## Current status
 
-**Day 13 of 14 complete.** 419 tests pass; ruff and mypy clean. Decisions are logged in
-`DECISIONS.md` (36 entries). `ARCHITECTURE.md` is the map; `DECISIONS.md` is the territory.
+**Day 14 of 14.** 450 tests pass; ruff and mypy clean. Decisions are logged in
+`DECISIONS.md` (37 entries). `ARCHITECTURE.md` is the map; `DECISIONS.md` is the territory.
+
+**The HTML report is `ledgerloop report --html`** — §12's buffer-policy deliverable, written
+by `make demo` to `results/report.html`. `ledgerloop/report/html.py` is a **pure function**:
+data in, string out, no DB, no filesystem, no truth. `eval/` scores the run and hands the
+numbers over, because precision needs ground truth and `ledgerloop/` may never read it.
+Do not let the renderer compute a figure — two sources for one number is how a wrong number
+ships. The page loads nothing from the network; the self-containment test checks for
+`<link>`/`<script src>`/`url()`, not for the substring `https://`, because Pydantic's own
+validation errors carry a documentation URL that is displayed as text.
 
 **Live:** everything except the FastAPI backend (`serve`), which is a deliberate cut
 (ADR-030). `generate`, `reconcile`, `report`, `exceptions`, `resolve` and `evaluate` all work.
