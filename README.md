@@ -106,7 +106,7 @@ These are load-bearing, not style preferences. They are enforced by tests where 
 
 ## Status
 
-In progress. 377 tests pass.
+In progress. 406 tests pass.
 
 **Implemented and tested:** money arithmetic (integer paise), the MDR/GST/TDS fee model and
 settlement-date math, the Tier 3 LLM output contract, exception reason codes, and the SQL
@@ -149,16 +149,36 @@ lowers the match rate; what it does not do on these fixtures is raise it.
 [ADR-029](DECISIONS.md) records how that number was arrived at, including the earlier
 inference that promoted five approved rules and made the cascade *worse*.
 
-**Tier 3 is tested but not measured.** Every rejection path is covered — a fabricated
-identifier discards the whole response, a proposal whose arithmetic fails is rejected at
-any confidence, a missing model degrades the run rather than failing it. None of that
-says whether the model produces *useful* proposals. Answering that needs one run with an
-API key to populate the committed response cache; see [ADR-026](DECISIONS.md). Until
-then the Full cascade and LLM-only rows of the ablation stay *not yet measured*.
+**Tier 3 has now run against a real model,** and the LLM-only control arm with it. The
+provider is Google AI Studio (`gemini-3.5-flash-lite`) via the official SDK; the switch
+from Anthropic touched exactly one file and nothing above it, which is the first real test
+of the vendor-agnostic claim in [ADR-024](DECISIONS.md) and the reason
+[ADR-031](DECISIONS.md) treats the swap as evidence rather than intent. Responses are
+cached and committed, so anyone can reproduce the Tier 3 rows with no key and no cost.
 
-**Measured so far:** the three deterministic arms of the §9.2 ablation, across all three
-fixtures. See [`results/metrics.md`](results/metrics.md) — that file is generated, and no
-figure from it is reproduced by hand anywhere in this README.
+**The cascade beats the LLM-only baseline on both axes at once** — higher auto-match *and*
+higher precision, using the same model on the same fixtures. The figures are in
+[`results/metrics.md`](results/metrics.md), which is generated. The mechanism is worth
+stating though, because it is the argument: both arms run the same three gates, so the
+gates are not what separates them. What separates them is how many questions the model was
+asked. The deterministic tiers claim everything they can first, so the model sees only the
+residual — every easy credit it might have fumbled is never put to it.
+
+**The gates reduce false matches; they do not eliminate them.** One proposal in the
+LLM-only arm passed schema, membership, arithmetic *and* the confidence threshold and was
+still wrong. A different settlement set can reconcile to the same rupee on a nearby date.
+[ADR-034](DECISIONS.md) states this plainly rather than letting "every proposal is
+re-verified" be read as "a wrong match is impossible".
+
+**Measured so far:** every arm of the §9.2 ablation on `adversarial` and `realistic`,
+including the LLM-only control; the three deterministic arms on all three fixtures. The
+`easy` LLM-only arm alone is outstanding — a full sweep needs 677 requests and the free
+tier allows 500 a day, so it is finished in a second sitting. An interrupted arm reports
+*not yet measured* rather than a rate over the part of the fixture that fit inside a quota
+window ([ADR-032](DECISIONS.md)).
+
+See [`results/metrics.md`](results/metrics.md) — that file is generated, and no figure from
+it is reproduced by hand anywhere in this README.
 
 See `PROJECT_SPEC.md` §12 for the day-by-day plan and [`DECISIONS.md`](DECISIONS.md) for
 why the architecture is shaped this way.

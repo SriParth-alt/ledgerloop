@@ -53,6 +53,7 @@ class RunMetrics:
     exceptions_by_code: dict[str, int] = field(default_factory=dict)
 
     llm_invocations: int = 0
+    cache_hits: int = 0
     hallucinations: int = 0
     cost_paise: int | None = None
 
@@ -60,6 +61,20 @@ class RunMetrics:
     value_at_risk_paise: int = 0
 
     seconds: float = 0.0
+
+    @property
+    def adjudications(self) -> int:
+        """How many credits this configuration put to the model.
+
+        The reproducible figure, and the one §9.2 means by "LLM calls". A *new API call*
+        count is a property of the cache, not of the configuration: the first published
+        adversarial run showed the full cascade making 3 calls where a cold cache would
+        have made 67, because a crashed earlier sweep had already paid for 64 of them.
+        Quoted as-is that would have understated the cascade's model usage twenty-fold —
+        in the flattering direction, which is exactly the sort of number this project has
+        to be most suspicious of.
+        """
+        return self.llm_invocations + self.cache_hits
 
     @property
     def throughput(self) -> float:
@@ -75,6 +90,7 @@ def compute_metrics(
     exceptions: dict[str, str],
     seconds: float,
     llm_invocations: int = 0,
+    cache_hits: int = 0,
     hallucinations: int = 0,
     cost_paise: int | None = None,
 ) -> RunMetrics:
@@ -117,6 +133,7 @@ def compute_metrics(
         false_match_rate=_ratio(incorrect, len(posted), when_empty=0.0),
         exceptions_by_code=dict(Counter(exceptions.values())),
         llm_invocations=llm_invocations,
+        cache_hits=cache_hits,
         hallucinations=hallucinations,
         cost_paise=cost_paise,
         value_reconciled_paise=reconciled,

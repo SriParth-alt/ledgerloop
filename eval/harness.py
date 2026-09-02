@@ -73,6 +73,7 @@ def score_run(
     *,
     seconds: float,
     llm_invocations: int = 0,
+    cache_hits: int = 0,
     hallucinations: int = 0,
     cost_paise: int | None = None,
 ) -> RunMetrics:
@@ -112,6 +113,7 @@ def score_run(
         exceptions=exceptions,
         seconds=seconds,
         llm_invocations=llm_invocations,
+        cache_hits=cache_hits,
         hallucinations=hallucinations,
         cost_paise=cost_paise,
     )

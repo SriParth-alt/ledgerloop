@@ -1087,3 +1087,196 @@ source hashes" becomes a report rather than an interaction. The data is all ther
 carries every field — so this is a presentation cut, not a capability one. `api/main.py` stays in the
 tree as a stub with its buffer-policy note intact, so the cut is visible in the repository rather than
 silently absent.
+
+---
+
+## ADR-031 — The provider is Gemini, and the swap is the evidence for ADR-024
+
+**Date:** 2026-09-02
+**Status:** Accepted
+
+**Context:** Tier 3 had never run against a real model, leaving the Full cascade and
+LLM-only rows of §9.2 unmeasured — and the LLM-only row is the control arm that turns the
+cascade from an assertion into a result. Closing that gap needed an API key. Anthropic's
+API is paid, and paying for it was not an option, so the project moved to Google AI Studio's
+free tier.
+
+**Decision:** `GeminiAdapter` via the official `google-genai` SDK, pinned to
+`gemini-3.5-flash-lite`. `AnthropicAdapter` stays in the tree as the second implementation
+of the Protocol rather than being deleted.
+
+**This is the first real test of ADR-024, and it passed.** ADR-024 claimed the
+`LLMAdapter` Protocol made the provider a config change rather than a refactor. Changing
+providers touched exactly one file. The tiers did not move. The gates did not move. The
+cache did not move. The orchestrator did not move. `tier3_llm.py` did not move. "No vendor
+lock-in" stopped being a design intention and became an observed property, which is a much
+better answer under questioning than an architecture diagram.
+
+**Alternatives considered:**
+- **Keep Anthropic and skip the measurement.** Lost: it leaves the control arm unmeasured,
+  and §9.2 exists precisely to stop the cascade being an opinion.
+- **Delete `AnthropicAdapter` now that it is unused.** Lost: two implementations of one
+  Protocol is the evidence for the claim above. One implementation proves nothing.
+- **Abstract over both providers with a framework.** Refused — see the exclusion list. The
+  entire LLM surface is one schema-constrained call; a framework here would undercut the
+  project's own argument.
+
+**Consequences.** Four things were found by doing this rather than by reasoning about it:
+
+1. **`gemini-2.5-flash-lite` is retired for new keys** and returns a 404 naming its
+   successor. The originally planned pin would have killed the sweep on request one. Found
+   by making a single two-token validation call before committing to 677 of them.
+2. **`temperature` had to move, not stay.** Anthropic removed sampling parameters on
+   current models and rejects them with a 400, so the `TEMPERATURE = 0.0` in the old
+   adapter was already broken by inspection. Gemini accepts it, and `seed` too. Either way
+   the determinism claim now rests where it always really rested: on the response cache.
+   Temperature and seed only stabilise the *first* call on a new prompt, which is a cache
+   miss by construction.
+3. **The retry predicate was wrong, and it cost 58 calls to learn.** It recognised only
+   429. The first real sweep died on a `ServerError: 503` — a transient outage that says
+   nothing about the credit being adjudicated — because a 5xx propagated straight out of
+   the adapter. Now `RETRYABLE_STATUS` covers 429 and 5xx, matched by status code rather
+   than exception class so an SDK rename cannot silently reintroduce it. Every one of the
+   58 answers survived in the cache, which is the first time that design was tested by an
+   actual failure rather than by a test.
+4. **`SweepInterruptedError` is now the base and `DailyQuotaExhaustedError` a subclass.**
+   Reporting a provider outage as "daily quota exhausted" would have been a false statement
+   in a generated metrics file. Both mean *stop and keep what you bought*; only one clears
+   by waiting a minute.
+
+The free tier's measured ceilings for this model are 15 RPM, 250K TPM and **500 requests
+per day**, read off the AI Studio dashboard because the docs no longer publish them. A full
+sweep needs 677, which is what forced ADR-032.
+
+---
+
+## ADR-032 — A model arm reports no number at all rather than a partial one
+
+**Date:** 2026-09-02
+**Status:** Accepted
+
+**Context:** §9.2's two model arms need 677 requests across the three fixtures. The free
+tier allows 500 a day. An interrupted sweep is therefore the normal case, not the
+exceptional one — and that is before counting outages, one of which had already stopped a
+run at 58 calls.
+
+**Decision:** An arm that could not ask about every credit it needed to reports
+*not yet measured*, exactly as it did while Tier 3 was unimplemented. No arm is ever scored
+over the portion of a fixture that fit inside a quota window.
+
+**Alternatives considered:**
+- **Score what came back and footnote the shortfall.** This is the tempting one, and it is
+  wrong. An auto-match rate over "the 312 credits we got to before the quota died" is not
+  reproducible by anyone, depends on when the run started, and would be quoted without its
+  footnote by the first person who read it. Rule 7 is as much about not implying a number
+  as about not typing one.
+- **Shrink the fixtures until a sweep fits in a day.** Refused: every arm must score the
+  same fixture at the same seed or the table compares datasets rather than tiers.
+- **Cut the `easy` LLM-only arm** (250 of the 677 calls, on the fixture the deterministic
+  tiers already solve at 100%). Kept for now — omitting a cell because we assumed we knew
+  its value is the exact habit this project is built against.
+
+**Consequences:** Interruption is cheap. The cache is written per response, so answers
+already paid for survive a crash and a resumed run re-buys nothing. That turns the
+677-versus-500 problem into a scheduling detail: run the fixtures that carry the argument
+first, run the rest tomorrow, then assemble the full table with a final pass that makes
+**zero** calls. That last pass is also a live demonstration of §7.4.
+
+`evaluate` grew a `--fixture` option for this reason. Running fixtures in file order would
+spend half a day's quota on `easy` before reaching `adversarial`, and an interruption would
+then cost the rows that matter most.
+
+`--estimate-only` exists for the same reason: it reports what a sweep *would* send, per
+arm, without sending it, so a call count is approved before quota is spent.
+
+---
+
+## ADR-033 — Report adjudications, not API calls
+
+**Date:** 2026-09-02
+**Status:** Accepted. Corrects a defect in the first published Tier 3 table.
+
+**Context:** §9.2 uses model-call count as a headline comparison: the cascade should reach
+a higher match rate *using fewer model calls* than the LLM-only baseline. The first real
+adversarial run reported the full cascade making **3** calls against the baseline's 162.
+
+That number was wrong in the flattering direction. A cold cache would have made 67. The 3
+was an artefact of an earlier crashed sweep having already paid for 64 of them.
+
+**Decision:** Report **adjudications** — how many credits the configuration put to the
+model — as the §9.2 figure, and report **new API calls** separately as what this particular
+run paid for.
+
+**Why:** adjudications is a property of the architecture and is reproducible. New API calls
+is a property of the response cache, varies with what happened to be on disk, and falls to
+zero on a re-run. Publishing only the second understates model usage by whatever the cache
+happened to hold, and the understatement always favours the cascade.
+
+**Alternatives considered:**
+- **Always run against a cold cache when publishing.** Lost: it would re-buy every answer
+  on every publication, which the free tier makes impossible and which the committed cache
+  exists to avoid.
+- **Report only new calls and note the caveat in prose.** Lost for the same reason ADR-032
+  rejects footnoted partial numbers: the caveat does not travel with the number.
+
+**Consequences:** `RunMetrics` gains `cache_hits` and an `adjudications` property. The
+report carries both columns and says in the table which is architectural and which is
+bookkeeping.
+
+Worth recording how close this came to shipping. "Full cascade: 3 calls versus LLM-only:
+162" is a far better-sounding line than the truth, and it survived a green suite of 404
+tests. It was caught only because the figure looked implausible against a call estimate
+measured an hour earlier. ADR-018 and ADR-027 record defects that measurement caught; this
+one adds an edge to the lesson. **The defects that survive longest are the ones whose
+output you are pleased with.**
+
+---
+
+## ADR-034 — The gates reduce false matches; they do not eliminate them
+
+**Date:** 2026-09-02
+**Status:** Accepted
+
+**Context:** Rule 2 says the LLM never overrides arithmetic, and every Tier 3 proposal is
+re-verified in Python. It is easy to read that — and the project has come close to saying
+it — as "a false match cannot get through Tier 3". The first measurement against a real
+model says otherwise.
+
+On `adversarial` at 250 records, the **LLM-only baseline posted one wrong match**:
+precision 98.9%, false-match rate 1.1%. It passed the schema gate, the membership gate, the
+arithmetic gate and the confidence threshold, and it was still wrong.
+
+**Decision:** State the gates as risk-reducing rather than airtight, in the README and in
+the pitch. The claim is "every proposal is re-verified against the fee model and the date
+window, and the numbers win", which is true. The claim is *not* "verification makes a wrong
+match impossible", which is not.
+
+**Why a proposal can be wrong and still reconcile:** the arithmetic gate asks whether a
+proposed settlement set explains the credit within tolerance. On a fixture containing
+similar amounts on nearby dates, a *different* settlement set can also reconcile. The gate
+catches proposals that do not add up. It cannot catch a proposal that adds up and is still
+not what happened.
+
+**Consequences.** The measured result makes the cascade's case more strongly than an
+airtight claim would have:
+
+| Configuration | Auto-match | Precision | False-match | Wrong |
+|---|---|---|---|---|
+| T0 + T1 + T2 | 59.4% | 100.0% | 0.0% | 0 |
+| Full cascade | 67.9% | 100.0% | 0.0% | 0 |
+| LLM-only baseline | 53.9% | 98.9% | 1.1% | 1 |
+
+Same model, same fixture, same prompts, same gates. The full cascade matched 14 points more
+and got none wrong; the baseline matched less and got one wrong. **The difference is not
+the gates — both arms have them. The difference is how many questions the model was
+asked.** In the full cascade the deterministic tiers claim everything they can first, so
+the model sees only the residual; in the baseline it sees every credit. Every easy credit
+the model might have fumbled was never put to it.
+
+That is the actual argument for deterministic-first, and it is stronger than "our gates
+catch everything": **the cheapest way to avoid a wrong answer from a model is not to ask it
+the question.** Sections 7.3's gates then reduce what remains — visibly, in the same run:
+19 `LLM_INVALID_OUTPUT` and 19 `AMOUNT_BEYOND_TOLERANCE` exceptions in the full cascade, 27
+and 40 in the baseline, all of them responses the model produced and Python refused. Zero
+hallucinated identifiers were seen in either arm, so the membership gate went unexercised
+on this fixture — its coverage remains scripted (§7.3), which is the honest statement.
