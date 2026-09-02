@@ -177,9 +177,17 @@ def test_the_demo_works_with_no_adapter_at_all(tmp_path: Path) -> None:
 
 
 def test_provenance_records_which_model_actually_decided(tmp_path: Path) -> None:
-    """A cache hit with no adapter used to write an empty ``model_name`` into the audit
-    trail — a false statement about which model produced a decision, in the one table the
-    whole provenance argument rests on."""
+    """Every Tier 3 match must name the model and prompt version that produced it.
+
+    §7.4 requires a prompt change to be visible in the trail rather than inferred from
+    whatever the code says later, and CLAUDE.md states the convention outright.
+
+    **This test previously passed while the column was entirely NULL.** It filtered
+    `WHERE model_name IS NOT NULL`, so an all-null column produced an empty set and the
+    assertion held vacuously — the orchestrator had been calling `record_match` without
+    model or prompt since Tier 3 landed. Assert the count first, then the contents; a
+    filter that can empty the set is a filter that can hide the bug.
+    """
     generate_fixture(
         fixture=DEMO_FIXTURE, settlements=DEMO_RECORDS, seed=DEMO_SEED, out_dir=tmp_path / "fx"
     )
@@ -205,12 +213,24 @@ def test_provenance_records_which_model_actually_decided(tmp_path: Path) -> None
             conn, "demo", tiers=DEMO_TIERS, adapter=None,
             cache=ResponseCache(COMMITTED_CACHE),
         )
-        names = {
-            row[0]
-            for row in conn.exec_driver_sql(
-                "SELECT model_name FROM match_records "
-                "WHERE run_id = 'demo' AND tier = 3 AND model_name IS NOT NULL"
+        rows = list(
+            conn.exec_driver_sql(
+                "SELECT model_name, prompt_version FROM match_records "
+                "WHERE run_id = 'demo' AND tier = 3"
             )
-        }
+        )
+        lower_tiers = list(
+            conn.exec_driver_sql(
+                "SELECT model_name FROM match_records "
+                "WHERE run_id = 'demo' AND tier < 3 AND model_name IS NOT NULL"
+            )
+        )
 
-    assert "" not in names
+    assert rows, "no Tier 3 matches to check — the fixture or cache changed"
+    for model_name, prompt_version in rows:
+        assert model_name, "a Tier 3 match recorded no model"
+        assert prompt_version, "a Tier 3 match recorded no prompt version"
+
+    # And the converse: tiers 0-2 never call a model, so claiming one would be worse
+    # than recording none.
+    assert not lower_tiers

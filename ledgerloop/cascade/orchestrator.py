@@ -45,13 +45,14 @@ from ledgerloop.audit.provenance import (
 from ledgerloop.cascade.tier0_exact import match_tier0
 from ledgerloop.cascade.tier1_tolerant import match_tier1
 from ledgerloop.cascade.tier2_subsetsum import candidate_pool, match_tier2
-from ledgerloop.cascade.tier3_llm import match_tier3
+from ledgerloop.cascade.tier3_llm import effective_model_name, match_tier3
 from ledgerloop.config import DEFAULT_MATCH_CONFIG, MatchConfig
 from ledgerloop.exceptions.codes import TERMINAL, ExceptionCode
 from ledgerloop.generate.fee_model import SETTLEMENT_FEE_MODEL, FeeModel
 from ledgerloop.ingest.schemas import BankRow, SettlementRow
 from ledgerloop.llm.adapter import DEFAULT_MODEL, LLMAdapter
 from ledgerloop.llm.cache import ResponseCache
+from ledgerloop.llm.prompts.v1 import PROMPT_VERSION
 from ledgerloop.rules.promote import EMPTY_STORE, RuleStore
 from ledgerloop.store.db import (
     finish_run,
@@ -156,8 +157,17 @@ def reconcile(
             model_name=model_name,
             rules=rules if rules is not None else EMPTY_STORE,
         )
+        # Tier 3 alone carries a model and a prompt version, and both must reach the
+        # audit trail: §7.4 requires a prompt change to be visible in the record rather
+        # than inferred from whatever the code says later. Tiers 0-2 pass None by
+        # construction — they never call a model, so they have nothing to declare.
+        decided_by = (effective_model_name(adapter, model_name) if tier == 3 else None)
+        version = PROMPT_VERSION if tier == 3 else None
+
         for match in result.matches:
-            record_match(conn, run_id, match)
+            record_match(
+                conn, run_id, match, model_name=decided_by, prompt_version=version
+            )
             claimed_bank.add(match.bank_txn_id)
             claimed_settlements.update(match.settlement_ids)
 

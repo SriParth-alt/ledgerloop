@@ -1386,3 +1386,51 @@ transcribed by hand, because prose about a measurement needs the number inline t
 sense. That is an accepted drift risk, and day 13 ran a verification pass — all fourteen
 figures quoted across ADR-029, ADR-033 and ADR-034 and the two status blocks were confirmed
 present in the generated output.
+
+---
+
+## ADR-037 — Tier 3 provenance was never written, and the test that should have caught it passed
+
+**Date:** 2026-09-02
+**Status:** Accepted. Fixes a defect present since Tier 3 landed on day 9.
+
+**Context:** `CLAUDE.md` states the convention outright — every posted match writes a
+`match_record` carrying tier, rule, evidence, source fingerprints, and *(tier 3 only)*
+model name and prompt version. §7.4 needs the prompt version in particular, so that a
+prompt change is visible in the trail rather than inferred from whatever the code says
+later.
+
+`Tier3Result` carried both fields. `record_match` accepted both as keyword arguments. The
+orchestrator called `record_match(conn, run_id, match)` and passed **neither**. Every Tier
+3 match in every run since day 9 recorded `model_name = NULL` and `prompt_version = NULL`.
+
+**The test written on day 13 to prevent exactly this passed anyway.** It read:
+
+```sql
+SELECT model_name FROM match_records WHERE ... AND model_name IS NOT NULL
+```
+
+and then asserted `"" not in names`. With the column entirely NULL the filter returned an
+empty set, and the assertion held over nothing at all. It was green for the same reason
+the bug existed.
+
+**Decision:** the orchestrator passes the model and prompt version for tier 3 and `None`
+for tiers 0-2. The identity comes from `effective_model_name(adapter, configured)`,
+extracted into one function so the cache key and the provenance record cannot drift apart
+— they are the same question, *which model produced this answer*, and answering it in two
+places is precisely how the cache became unreadable without an API key (ADR-035).
+
+**The test now asserts the row count before the contents**, and separately asserts that
+tiers 0-2 record *no* model, because claiming one would be worse than recording none.
+
+**Consequences:** a Tier 3 match now reads `gemini-3.5-flash-lite · v1` in the audit trail.
+Tiers 0-2 read nothing, which is itself the point — the provenance record is where rule 1
+becomes checkable rather than stated.
+
+Found while building the HTML report, because the provenance panel had nothing to show.
+That is worth recording on its own: **the defect had survived 419 tests, CI, a clean-clone
+check and a written convention, and what exposed it was trying to display the data to a
+human.** A field nothing reads is a field nobody notices is empty.
+
+**A filter that can empty the set is a filter that can hide the bug.** Assert the shape of
+the data before asserting anything about its contents.

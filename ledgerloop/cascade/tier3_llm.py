@@ -99,6 +99,16 @@ def rank_candidates(
     return sorted(ranked, key=lambda row: row.settlement_id)
 
 
+def effective_model_name(adapter: LLMAdapter | None, configured: str) -> str:
+    """Who is answering: the live adapter if there is one, else the configured model.
+
+    Extracted so the cache key and the provenance record cannot drift apart. They are the
+    same question — *which model produced this answer* — and answering it differently in
+    two places is how the cache came to be unreadable without an API key (ADR-035).
+    """
+    return adapter.name if adapter is not None else configured
+
+
 def match_tier3(
     bank_txns: Sequence[BankRow],
     settlements: Sequence[SettlementRow],
@@ -126,7 +136,7 @@ def match_tier3(
     """
     # Whoever actually answers is the model of record. Falling back to the configured
     # name (rather than to None) is what lets a keyless run hit the committed cache.
-    model_name = adapter.name if adapter is not None else model_name
+    model_name = effective_model_name(adapter, model_name)
 
     matches: list[ProposedMatch] = []
     exceptions: list[ProposedException] = []
