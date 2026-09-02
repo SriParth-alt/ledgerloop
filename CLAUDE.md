@@ -31,7 +31,7 @@ These are the thesis of the project. Do not "improve" them without asking.
 make setup     # install deps
 make test      # pytest
 make lint      # ruff + mypy --strict on ledgerloop/cascade and ledgerloop/llm
-make demo      # generate → reconcile → report, end to end
+make demo      # generate → reconcile → report on `adversarial`, no API key needed
 make eval      # full ablation across fixtures, writes results/metrics.md
 ```
 
@@ -76,8 +76,11 @@ SQLite app); ORMs beyond SQLAlchemy Core; fine-tuning; multi-currency; auth or u
 **Live:** everything except the FastAPI backend (`serve`), which is a deliberate cut
 (ADR-030). `generate`, `reconcile`, `report`, `exceptions`, `resolve` and `evaluate` all work.
 
-**`make demo` runs the full cascade with no API key**, entirely from the committed response
-cache in `fixtures/llm_cache`. This was broken until day 13: the cache key was read off the
+**`make demo` runs the full cascade on `adversarial` with no API key**, entirely from the
+committed response cache in `fixtures/llm_cache`. The fixture is deliberate: on `realistic`
+Tier 3 correctly declines every residual credit, so the live output reads `tier 3  0 credits`
+and the tier the pitch is about looks inert. On `adversarial` it contributes 14 credits and
+the gates are visibly rejecting proposals. This was broken until day 13: the cache key was read off the
 live adapter's name, so a keyless run looked everything up under `""` and missed all 559
 answers — silently, because §8's graceful degradation made the run succeed anyway. The rule
 is now `model_name = adapter.name if adapter is not None else model_name` (ADR-035). Do not

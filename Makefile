@@ -17,10 +17,19 @@ fmt:
 
 # End-to-end: generate a batch, reconcile it, print the report.
 # This is the command the pitch video runs.
+#
+# `adversarial` rather than `realistic`, deliberately. On realistic the deterministic
+# tiers resolve everything Tier 3 could have, so the live output reads "tier 3  0
+# credits" -- honest, and it makes the tier the pitch is about look inert. On
+# adversarial Tier 3 adds real matches on top of T0-T2 and the gates are visible
+# rejecting proposals. It is also the harder fixture, which is the point.
+#
+# Runs with no API key: Tier 3 is served entirely from the committed response cache
+# in fixtures/llm_cache (ADR-035). CI runs this target on every push.
 demo:
-	ledgerloop generate --fixture realistic --records 250
-	ledgerloop reconcile --run-id demo
-	ledgerloop report --run-id demo
+	ledgerloop generate --fixture adversarial --records 250
+	ledgerloop reconcile --run-id demo --fixture adversarial
+	ledgerloop report --run-id demo --fixture adversarial
 
 # Full ablation across fixtures. Writes results/metrics.md.
 # Every number in README.md comes from here and from nowhere else.

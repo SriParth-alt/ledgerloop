@@ -96,7 +96,7 @@ result.
 ```bash
 make setup     # install
 make test      # 356 tests, no API key needed
-make demo      # generate → reconcile → report
+make demo      # generate → reconcile → report, on the adversarial fixture, no API key needed
 make eval      # full ablation, writes results/metrics.md
 ```
 

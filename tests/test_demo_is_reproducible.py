@@ -7,10 +7,15 @@ because it breaks in front of an audience rather than in CI.
 The demo runs the **full cascade**, Tier 3 included, entirely from the committed response
 cache. That is a deliberate choice over `--no-llm`: it shows the whole architecture
 working, needs no key, costs nothing, and produces byte-identical output on every machine.
-It only holds because three things line up exactly — `generate`'s defaults (realistic, 250
-records, seed 42), `reconcile` running without a rule store, and the cache having been
-populated by an eval run with those same parameters. Any one of them drifting turns Tier 3
-in the demo into a wall of MODEL_UNAVAILABLE, silently, on a laptop with no key.
+It only holds because three things line up exactly — the fixture, records and seed the
+Makefile passes (adversarial, 250, 42), `reconcile` running without a rule store, and the
+cache having been populated by an eval run with those same parameters. Any one of them
+drifting turns Tier 3 in the demo into a wall of MODEL_UNAVAILABLE, silently, on a laptop
+with no key.
+
+`adversarial` is the demo fixture because on `realistic` Tier 3 correctly declines every
+residual credit, so the tier the pitch is about reads as inert. Here it contributes real
+matches and the gates are visibly rejecting proposals.
 
 Nothing here calls a model, and nothing here constructs an adapter — that is the point.
 A judge runs `make demo` with no key, so `adapter=None` is the configuration under test.
@@ -43,7 +48,7 @@ COMMITTED_CACHE = REPO_ROOT / "fixtures" / "llm_cache"
 # Exactly what `make demo` runs. Duplicated as constants rather than parsed out of the
 # Makefile: if the Makefile changes, this test should fail and make someone re-check the
 # cache, not quietly follow along.
-DEMO_FIXTURE = "realistic"
+DEMO_FIXTURE = "adversarial"
 DEMO_RECORDS = 250
 DEMO_SEED = 42
 DEMO_TIERS = frozenset({0, 1, 2, 3})
