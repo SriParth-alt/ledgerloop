@@ -70,41 +70,41 @@ SQLite app); ORMs beyond SQLAlchemy Core; fine-tuning; multi-currency; auth or u
 
 ## Current status
 
-**Day 12 of 14 complete.** 406 tests pass; ruff and mypy clean. Decisions are logged in
-`DECISIONS.md` (34 entries) — read it before revisiting anything that looks odd, because most
-of it is deliberate.
+**Day 13 of 14 complete.** 419 tests pass; ruff and mypy clean. Decisions are logged in
+`DECISIONS.md` (36 entries). `ARCHITECTURE.md` is the map; `DECISIONS.md` is the territory.
 
-**Live:** money arithmetic, the fee model, the generator with all thirteen chaos injectors, ingest,
-Tiers 0-4 including Tier 3 against a real model, the exception queue with clustering, rule promotion
-with CLI approval, provenance, and the eval harness. `generate`, `reconcile`, `report`, `exceptions`,
-`resolve` and `evaluate` all work.
+**Live:** everything except the FastAPI backend (`serve`), which is a deliberate cut
+(ADR-030). `generate`, `reconcile`, `report`, `exceptions`, `resolve` and `evaluate` all work.
 
-**Still stubs:** the FastAPI backend (`serve`). The UI is cut, deliberately — ADR-030.
+**`make demo` runs the full cascade with no API key**, entirely from the committed response
+cache in `fixtures/llm_cache`. This was broken until day 13: the cache key was read off the
+live adapter's name, so a keyless run looked everything up under `""` and missed all 559
+answers — silently, because §8's graceful degradation made the run succeed anyway. The rule
+is now `model_name = adapter.name if adapter is not None else model_name` (ADR-035). Do not
+"simplify" it to always use the configured name; that makes provenance lie about who
+answered, and `test_every_tier_three_match_names_the_model_and_prompt_version` will catch you.
 
-**The provider is Gemini** (`gemini-3.5-flash-lite`, `google-genai` SDK), because a free tier was a
-hard requirement. The swap from Anthropic touched one file and nothing above it — that is ADR-031 and
-it is the evidence for ADR-024's vendor-agnostic claim. `AnthropicAdapter` stays in the tree as the
-second implementation; do not delete it, it is the proof. Key comes from `GEMINI_API_KEY` or
-`GOOGLE_API_KEY`, or a gitignored `.env` loaded at the CLI composition root.
+**Rule 7 is now mechanical.** The README's results table is spliced between
+`<!-- RESULTS:START -->` markers by `make eval`, mirrored to `results/summary.md`, and
+`tests/test_readme_results.py` asserts they are byte-identical. CI regenerates and runs
+`git diff --exit-code`. Never type a number into README.md or results/ (ADR-036).
 
-**The headline result, measured:** on `adversarial`, full cascade 67.9% auto-match at 100% precision
-and 0 wrong, against an LLM-only baseline at 53.9%, 98.9% precision and 1 wrong. On `realistic`,
-94.6% against 74.1%, both at 100% precision. Same model, same fixtures, same gates in both arms —
-the cascade wins because the deterministic tiers mean the model is asked far fewer questions, not
-because its gates are better. That framing is the argument; see ADR-034.
+**The provider is Gemini** (`gemini-3.5-flash-lite`, `google-genai`). The swap from Anthropic
+touched one file — that is ADR-031 and the evidence for ADR-024. `AnthropicAdapter` stays as
+the second implementation; do not delete it, it is the proof.
 
-**The gates are not airtight, and the README says so.** One LLM-only proposal passed schema,
-membership, arithmetic and the confidence threshold and was still wrong. Do not restore any wording
-that implies verification makes a false match impossible.
+**The headline result:** on `adversarial`, full cascade 67.9% auto-match at 100% precision
+and 0 wrong, against an LLM-only baseline at 53.9%, 98.9% precision, 1 wrong — using 61
+adjudications against 165. On `realistic`, 94.6% against 74.1%. Both arms run the same gates,
+so the gates are not what separates them; how many questions the model was asked is. See
+ADR-034, and do not restore wording implying the gates make a false match impossible.
 
-**Free-tier ceilings:** 15 RPM, 250K TPM, 500 RPD. A full sweep needs 677 calls, so it takes two
-sittings. Answers are cached in `fixtures/llm_cache` and committed, so a re-run makes zero calls and
-CI needs no key. `evaluate --estimate-only` reports what a sweep would send without sending it;
-`--fixture` runs one at a time so a quota is not spent on `easy` before the rows that matter.
+**Outstanding:** the `easy` LLM-only arm alone. The free tier's 500/day ran out. Run
+`evaluate --fixture easy` on a fresh quota, then `evaluate --all-fixtures` to assemble — the
+second pass costs zero calls.
 
-**Outstanding:** the `easy` LLM-only arm. Run `evaluate --fixture easy` on a fresh daily quota, then
-`evaluate --all-fixtures` to assemble — the second pass costs zero calls and is itself a live
-demonstration of §7.4.
+**Day 14:** record the 5-minute pitch and submit. A static HTML report was scoped as the
+optional extra and is the first thing to cut.
 
 **Sharp edges before you touch the cascade:** ADR-018 and ADR-027 both record defects that every
 passing unit test missed, because unit tests over hand-built rows cannot see a tier meeting a chaos

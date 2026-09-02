@@ -1280,3 +1280,103 @@ the question.** Sections 7.3's gates then reduce what remains — visibly, in th
 and 40 in the baseline, all of them responses the model produced and Python refused. Zero
 hallucinated identifiers were seen in either arm, so the membership gate went unexercised
 on this fixture — its coverage remains scripted (§7.3), which is the honest statement.
+
+---
+
+## ADR-035 — The cache is keyed on a model of record, so a keyless run reproduces Tier 3
+
+**Date:** 2026-09-02
+**Status:** Accepted. Fixes a defect that made ADR-026's central promise false.
+
+**Context:** ADR-026 committed the Tier 3 response cache to the repository so that "CI runs
+Tier 3 without an API key and without cost", and §7.4 promises a re-run performs zero calls
+and produces a byte-identical match set. §12's bar for day 13 is *fresh clone → `make demo`
+works*.
+
+None of that was true. `tier3_llm.py` computed the cache key from `adapter.name`, falling
+back to `""` when there was no adapter. A run without a key therefore looked up every
+response under the empty string and **missed all 559 committed answers**. Measured on the
+demo fixture: 4/10 prompts hit with the model name, **0/10 with no adapter**.
+
+The failure is silent. §8 requires the batch to complete when no model is reachable, so
+Tier 3 would raise `MODEL_UNAVAILABLE` per credit, the run would succeed, the totals would
+look plausible, and the tier the whole pitch is about would have done nothing — on a
+judge's laptop, during the demo.
+
+**Decision:** `match_tier3` takes a `model_name` parameter, defaulting to the pinned model.
+The rule is:
+
+```python
+model_name = adapter.name if adapter is not None else model_name
+```
+
+Whoever actually answered is the model of record; when nobody answered live, the configured
+model is.
+
+**Why not simply always use the configured name.** That was the first attempt and it broke
+provenance: a scripted response recorded as having come from Gemini is a false statement in
+the one table the entire audit argument rests on. `tests/test_tier3.py::
+test_every_tier_three_match_names_the_model_and_prompt_version` caught it. The test was
+right; the code changed. In production the two values agree anyway, because `build_adapter`
+is handed the same pinned model.
+
+**Alternatives considered:**
+- **Drop the model from the cache key entirely.** Lost: the same prompt answered by a
+  different model is a different answer, and serving one from the other's cache would make
+  the provenance record's `model_name` a lie in a subtler way.
+- **Run the demo with `--no-llm`.** Lost: it needs no code change but shows less. The whole
+  point of committing the cache is that the full cascade is demonstrable for free.
+
+**Consequences:** `reconcile` grew `--cache-dir` and `--model`, so `make demo` runs the full
+cascade from the committed cache with no key. Verified end to end with the environment
+variables cleared: 685 rows ingested, tiers 0-3 executed, **no `MODEL_UNAVAILABLE`**, and
+`AMOUNT_BEYOND_TOLERANCE 2` / `LLM_INVALID_OUTPUT 2` in the exception spread — the
+arithmetic and schema gates rejecting real cached model responses, visible in the demo
+output.
+
+CI now runs `make demo` on every push with no key configured, so the claim is checked
+continuously rather than asserted once.
+
+This is the fifth defect in this project that a green test suite did not see, and it has a
+distinguishing feature worth naming: **it was invisible because the fallback path was
+correct**. Graceful degradation did exactly what §8 asked, and in doing so it concealed that
+the primary path never ran.
+
+---
+
+## ADR-036 — The README's results table is generated, and the build checks it
+
+**Date:** 2026-09-02
+**Status:** Accepted
+
+**Context:** Rule 7 — *never hand-write a metric into README.md or results/* — was the only
+one of the seven non-negotiable rules with no mechanical guard. Rule 6 has
+`tests/test_no_truth_leak.py`, which has caught a real violation.
+
+Intention lost. The README's Results table sat full of placeholder em-dashes for twelve
+days, under a banner reading "PLACEHOLDER — do not fill by hand", while `results/metrics.md`
+beside it filled with real measured figures. A reader skimming the repository would have
+concluded the project had measured nothing.
+
+**Decision:** `evaluate` renders the summary table, writes it to `results/summary.md`, and
+splices it into README.md between `<!-- RESULTS:START -->` / `<!-- RESULTS:END -->` markers.
+`tests/test_readme_results.py` asserts the two are byte-identical, and CI regenerates and
+runs `git diff --exit-code`.
+
+**Alternatives considered:**
+- **Delete the table and link to `results/metrics.md`.** Honest, zero risk, and worse: §9.2
+  is the centrepiece of the pitch and a judge should meet it on the page rather than one
+  click away.
+- **Fill it in by hand from the generated file, carefully.** Refused. "I copied carefully"
+  is what everyone says before a transcription bug, and a hand-typed metric is
+  indistinguishable from a generated one by eye — which is the entire reason rule 7 exists.
+
+**Consequences:** editing either side by hand now fails the suite. `splice` raises rather
+than repairing a README with no markers, because appending the table or silently doing
+nothing both end with stale numbers whose staleness is invisible.
+
+The ADRs remain the exception: figures quoted in `DECISIONS.md` and `CLAUDE.md` are
+transcribed by hand, because prose about a measurement needs the number inline to make
+sense. That is an accepted drift risk, and day 13 ran a verification pass — all fourteen
+figures quoted across ADR-029, ADR-033 and ADR-034 and the two status blocks were confirmed
+present in the generated output.

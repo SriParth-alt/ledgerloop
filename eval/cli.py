@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 
 from eval.ablation import estimate_calls, run_ablation, write_report
 from eval.harness import load_truth, score_run
+from eval.summary import render_summary, splice
 from ledgerloop.cli import app, console
 from ledgerloop.generate.synth import TRUTH_FILE
 from ledgerloop.llm.adapter import GEMINI_DEFAULT_MODEL, RateLimit, build_adapter
@@ -88,6 +89,8 @@ def evaluate(
     cache_dir: Path = typer.Option(DEFAULT_CACHE_DIR),
     requests_per_minute: int = typer.Option(15, help="Provider ceiling; paces the sweep."),
     requests_per_day: int = typer.Option(500, help="Provider ceiling; stops the sweep."),
+    readme: Path = typer.Option(Path("README.md"), help="Spliced between RESULTS markers."),
+    summary_out: Path = typer.Option(Path("results/summary.md")),
 ) -> None:
     """Run the full ablation and write results.
 
@@ -168,7 +171,18 @@ def evaluate(
                 )
         write_report(results, out)
 
-    console.print(f"[green]wrote[/] {out}")
+        # Rule 7 made mechanical: the README's table is written here, and a test asserts
+        # it stays byte-identical to results/summary.md. Nobody types a metric.
+        block = render_summary(results)
+        summary_out.parent.mkdir(parents=True, exist_ok=True)
+        summary_out.write_text(
+            block.strip() + "\n", encoding="utf-8", newline="\n"
+        )
+        if readme.exists():
+            splice(readme, block)
+            console.print(f"[green]spliced[/] results into {readme}")
+
+    console.print(f"[green]wrote[/] {out} and {summary_out}")
 
 
 def main() -> None:

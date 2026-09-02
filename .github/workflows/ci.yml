@@ -29,3 +29,19 @@ jobs:
 
       - name: Test
         run: pytest --cov=ledgerloop --cov-report=term-missing
+
+      # §12's bar for day 13 is "fresh clone -> make demo works". This is that check,
+      # on every push rather than once by hand. No API key is configured in this
+      # workflow, deliberately: Tier 3 must run entirely from the committed response
+      # cache, which is the claim ADR-026 makes and which was broken until day 13.
+      - name: Demo (fresh clone, no API key)
+        run: make demo
+
+      # The README's results table is generated, never typed (rule 7). Regenerating it
+      # from the committed cache must leave the working tree untouched -- a diff here
+      # means either someone hand-edited a number, or the numbers moved and the README
+      # was not regenerated. Both are release blockers.
+      - name: Results table is generated, not hand-written
+        run: |
+          ledgerloop evaluate --all-fixtures --out results/metrics.md
+          git diff --exit-code -- README.md results/

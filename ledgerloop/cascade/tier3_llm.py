@@ -37,7 +37,7 @@ from ledgerloop.config import DEFAULT_MATCH_CONFIG, MatchConfig
 from ledgerloop.exceptions.codes import ExceptionCode
 from ledgerloop.generate.fee_model import SETTLEMENT_FEE_MODEL, FeeModel
 from ledgerloop.ingest.schemas import BankRow, SettlementRow
-from ledgerloop.llm.adapter import LLMAdapter
+from ledgerloop.llm.adapter import DEFAULT_MODEL, LLMAdapter
 from ledgerloop.llm.cache import ResponseCache, cache_key
 from ledgerloop.llm.prompts.v1 import PROMPT_VERSION, render
 
@@ -105,18 +105,35 @@ def match_tier3(
     *,
     adapter: LLMAdapter | None,
     cache: ResponseCache,
+    model_name: str = DEFAULT_MODEL,
     fee_model: FeeModel = SETTLEMENT_FEE_MODEL,
     config: MatchConfig = DEFAULT_MATCH_CONFIG,
 ) -> Tier3Result:
-    """Adjudicate the residual, one credit at a time, through the gates."""
+    """Adjudicate the residual, one credit at a time, through the gates.
+
+    ``model_name`` is the identity the cache is keyed under **when no adapter is
+    present**, and it is why a run with no API key can still reproduce Tier 3.
+
+    Previously this was read solely off ``adapter.name``, so a keyless run computed its
+    keys under the empty string and missed every committed response — the cache that
+    exists specifically to make Tier 3 reproducible without a key only worked for people
+    who had one. It also wrote ``""`` into the provenance record.
+
+    A live adapter still wins, because provenance must name whoever actually answered: a
+    scripted response did not come from Gemini, and recording that it did would be a false
+    statement in the one table the audit trail rests on. In production the two agree —
+    ``build_adapter`` is given the same pinned model — so the cache stays warm either way.
+    """
+    # Whoever actually answers is the model of record. Falling back to the configured
+    # name (rather than to None) is what lets a keyless run hit the committed cache.
+    model_name = adapter.name if adapter is not None else model_name
+
     matches: list[ProposedMatch] = []
     exceptions: list[ProposedException] = []
     invocations = 0
     hits = 0
     hallucinations = 0
     claimed: set[str] = set()
-
-    model_name = adapter.name if adapter is not None else None
 
     for bank_txn in bank_txns:
         available = [row for row in settlements if row.settlement_id not in claimed]

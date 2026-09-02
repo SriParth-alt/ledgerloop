@@ -50,7 +50,7 @@ from ledgerloop.config import DEFAULT_MATCH_CONFIG, MatchConfig
 from ledgerloop.exceptions.codes import TERMINAL, ExceptionCode
 from ledgerloop.generate.fee_model import SETTLEMENT_FEE_MODEL, FeeModel
 from ledgerloop.ingest.schemas import BankRow, SettlementRow
-from ledgerloop.llm.adapter import LLMAdapter
+from ledgerloop.llm.adapter import DEFAULT_MODEL, LLMAdapter
 from ledgerloop.llm.cache import ResponseCache
 from ledgerloop.rules.promote import EMPTY_STORE, RuleStore
 from ledgerloop.store.db import (
@@ -127,6 +127,7 @@ def reconcile(
     no_llm: bool = False,
     adapter: LLMAdapter | None = None,
     cache: ResponseCache | None = None,
+    model_name: str = DEFAULT_MODEL,
     rules: RuleStore | None = None,
     on_tier: Callable[[TierOutcome], None] | None = None,
 ) -> ReconcileReport:
@@ -152,6 +153,7 @@ def reconcile(
             no_llm=no_llm,
             adapter=adapter,
             cache=cache,
+            model_name=model_name,
             rules=rules if rules is not None else EMPTY_STORE,
         )
         for match in result.matches:
@@ -234,6 +236,7 @@ def _run_tier(
     no_llm: bool,
     adapter: LLMAdapter | None = None,
     cache: ResponseCache | None = None,
+    model_name: str = DEFAULT_MODEL,
     rules: RuleStore = EMPTY_STORE,
 ) -> tuple[TierResult, tuple[int, int, int]]:
     """Dispatch to a tier, returning its result and its model counters.
@@ -262,6 +265,7 @@ def _run_tier(
             settlements,
             adapter=None if no_llm else adapter,
             cache=cache if cache is not None else ResponseCache(None),
+            model_name=model_name,
         )
         return (
             TierResult(matches=outcome.matches, exceptions=outcome.exceptions),

@@ -32,6 +32,8 @@ from ledgerloop.generate.synth import (
     generate_fixture,
 )
 from ledgerloop.ingest.loader import load_batch
+from ledgerloop.llm.adapter import DEFAULT_MODEL, build_adapter
+from ledgerloop.llm.cache import ResponseCache
 from ledgerloop.rules.promote import (
     attach_promoted_rule,
     promote,
@@ -85,12 +87,22 @@ def reconcile(
     tiers: str = typer.Option("0,1,2,3", help="Ablation: e.g. '0,1' runs deterministic only."),
     no_llm: bool = typer.Option(False, help="Force a degraded run without Tier 3."),
     fixtures_dir: Path = typer.Option(Path("fixtures"), help="Where generate wrote its files."),
+    cache_dir: Path = typer.Option(
+        Path("fixtures/llm_cache"), help="Committed Tier 3 responses. Makes a keyless run work."
+    ),
+    model: str = typer.Option(DEFAULT_MODEL, help="Identity the cache is keyed under."),
     db: Path = typer.Option(DEFAULT_DB_PATH, help="SQLite file to ingest into."),
 ) -> None:
     """Run the cascade over an ingested batch.
 
     Prints a live per-tier count as it goes — that streaming output is the moment in
     the demo where the architecture becomes visible.
+
+    **Tier 3 runs from the committed cache when there is no API key**, which is what makes
+    `make demo` show the whole cascade on a fresh clone rather than a column of
+    MODEL_UNAVAILABLE. The cache is keyed on the prompt and the model, so it only hits when
+    the fixture matches the one the responses were bought for — `generate`'s defaults are
+    that fixture. A key, if present, only fills what the cache misses.
     """
     try:
         selected = parse_tiers(tiers)
@@ -131,7 +143,16 @@ def reconcile(
                 f"{outcome.matched_settlements:>5} settlements"
             )
 
-        report = run_cascade(conn, run_id, tiers=selected, no_llm=no_llm, on_tier=show)
+        report = run_cascade(
+            conn,
+            run_id,
+            tiers=selected,
+            no_llm=no_llm,
+            adapter=build_adapter(model=model),
+            cache=ResponseCache(cache_dir),
+            model_name=model,
+            on_tier=show,
+        )
 
     console.print(
         f"[bold]unmatched[/] {report.unmatched_bank_txns} credits, "
