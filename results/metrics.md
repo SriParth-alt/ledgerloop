@@ -6,6 +6,17 @@
 
 ## Configuration in force
 
+Throughput is credits per second, timed around reconciliation only — including
+generation and ingest would measure the fixture rather than the cascade. Track 04's
+bar names it alongside accuracy and the exception list.
+
+**The two model arms are replayed from the committed response cache, so their
+throughput excludes API latency.** Read as a comparison of matcher work it is fair;
+read as wall-clock it flatters both of them, and it flatters the LLM-only baseline
+most, because that arm makes the most calls. At roughly four seconds a call under
+the free tier's pacing, its 165 live calls take minutes rather than the second and
+a half shown here.
+
 §9.1 requires reporting the MatchConfig alongside any metric. A tolerance-dependent
 number whose tolerance is unknown is not reproducible — and Tier 2's band alone was
 the difference between 4 matches and 41 (ADR-019).
@@ -29,13 +40,13 @@ the difference between 4 matches and 41 (ADR-019).
 
 ## Fixture: `easy` (seed 42)
 
-| Configuration | Auto-match | Precision | False-match | Recall | Posted | Wrong |
-|---|---|---|---|---|---|---|
-| T0 only | 100.0% | 100.0% | **0.0%** | 100.0% | 250 | 0 |
-| T0 + T1 | 100.0% | 100.0% | **0.0%** | 100.0% | 250 | 0 |
-| T0 + T1 + T2 | 100.0% | 100.0% | **0.0%** | 100.0% | 250 | 0 |
-| Full cascade | 100.0% | 100.0% | **0.0%** | 100.0% | 250 | 0 |
-| LLM-only baseline | *not yet measured* | *not yet measured* | *not yet measured* | *not yet measured* | — | — |
+| Configuration | Auto-match | Precision | False-match | Recall | Throughput | Seconds | Posted | Wrong |
+|---|---|---|---|---|---|---|---|---|
+| T0 only | 100.0% | 100.0% | **0.0%** | 100.0% | 5,992/s | 0.04 | 250 | 0 |
+| T0 + T1 | 100.0% | 100.0% | **0.0%** | 100.0% | 5,892/s | 0.04 | 250 | 0 |
+| T0 + T1 + T2 | 100.0% | 100.0% | **0.0%** | 100.0% | 5,921/s | 0.04 | 250 | 0 |
+| Full cascade | 100.0% | 100.0% | **0.0%** | 100.0% | 6,294/s | 0.04 | 250 | 0 |
+| LLM-only baseline | *not yet measured* | *not yet measured* | *not yet measured* | *not yet measured* | — | — | — | — |
 
 Credits in fixture: 250 (250 explainable; the remainder are orphans and re-posts that no matcher should resolve).
 
@@ -64,13 +75,13 @@ hold.
 
 ## Fixture: `realistic` (seed 42)
 
-| Configuration | Auto-match | Precision | False-match | Recall | Posted | Wrong |
-|---|---|---|---|---|---|---|
-| T0 only | 41.1% | 100.0% | **0.0%** | 41.1% | 76 | 0 |
-| T0 + T1 | 68.6% | 100.0% | **0.0%** | 68.6% | 127 | 0 |
-| T0 + T1 + T2 | 94.6% | 100.0% | **0.0%** | 94.6% | 175 | 0 |
-| Full cascade | 94.6% | 100.0% | **0.0%** | 94.6% | 175 | 0 |
-| LLM-only baseline | 74.1% | 100.0% | **0.0%** | 74.1% | 137 | 0 |
+| Configuration | Auto-match | Precision | False-match | Recall | Throughput | Seconds | Posted | Wrong |
+|---|---|---|---|---|---|---|---|---|
+| T0 only | 41.1% | 100.0% | **0.0%** | 41.1% | 4,617/s | 0.04 | 76 | 0 |
+| T0 + T1 | 68.6% | 100.0% | **0.0%** | 68.6% | 3,073/s | 0.06 | 127 | 0 |
+| T0 + T1 + T2 | 94.6% | 100.0% | **0.0%** | 94.6% | 2,984/s | 0.06 | 175 | 0 |
+| Full cascade | 94.6% | 100.0% | **0.0%** | 94.6% | 2,829/s | 0.07 | 175 | 0 |
+| LLM-only baseline | 74.1% | 100.0% | **0.0%** | 74.1% | 1,110/s | 0.17 | 137 | 0 |
 
 Credits in fixture: 185 (185 explainable; the remainder are orphans and re-posts that no matcher should resolve).
 
@@ -100,13 +111,13 @@ hold.
 
 ## Fixture: `adversarial` (seed 42)
 
-| Configuration | Auto-match | Precision | False-match | Recall | Posted | Wrong |
-|---|---|---|---|---|---|---|
-| T0 only | 13.3% | 100.0% | **0.0%** | 14.1% | 22 | 0 |
-| T0 + T1 | 26.1% | 100.0% | **0.0%** | 27.6% | 43 | 0 |
-| T0 + T1 + T2 | 59.4% | 100.0% | **0.0%** | 62.8% | 98 | 0 |
-| Full cascade | 67.9% | 100.0% | **0.0%** | 71.8% | 112 | 0 |
-| LLM-only baseline | 53.9% | 98.9% | **1.1%** | 56.4% | 89 | 1 |
+| Configuration | Auto-match | Precision | False-match | Recall | Throughput | Seconds | Posted | Wrong |
+|---|---|---|---|---|---|---|---|---|
+| T0 only | 13.3% | 100.0% | **0.0%** | 14.1% | 4,022/s | 0.04 | 22 | 0 |
+| T0 + T1 | 26.1% | 100.0% | **0.0%** | 27.6% | 2,281/s | 0.07 | 43 | 0 |
+| T0 + T1 + T2 | 59.4% | 100.0% | **0.0%** | 62.8% | 2,212/s | 0.07 | 98 | 0 |
+| Full cascade | 67.9% | 100.0% | **0.0%** | 71.8% | 1,340/s | 0.12 | 112 | 0 |
+| LLM-only baseline | 53.9% | 98.9% | **1.1%** | 56.4% | 1,052/s | 0.16 | 89 | 1 |
 
 Credits in fixture: 165 (156 explainable; the remainder are orphans and re-posts that no matcher should resolve).
 

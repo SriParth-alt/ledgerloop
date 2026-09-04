@@ -205,3 +205,53 @@ def test_an_all_fixtures_run_does_splice_the_readme(tmp_path: Path) -> None:
     written = readme.read_text(encoding="utf-8")
     assert "OLD" not in written
     assert "adversarial" in written
+
+
+# --- throughput: the third of the track bar that was measured and never published ----
+
+
+def test_the_summary_publishes_throughput(tmp_path: Path) -> None:
+    """Track 04's bar is "throughput plus measured accuracy plus an honest exception
+    list", and the guide spells it out: report how many matched, **how fast**, and which
+    ones could not be resolved.
+
+    `RunMetrics.throughput` existed from day 8 with a docstring saying "the track bar asks
+    for it explicitly" — and no table ever rendered it. Measured, then discarded.
+    """
+    arms = {
+        "realistic": run_ablation(
+            "realistic", records=60, seed=42, workdir=tmp_path, adapter=None, cache=None
+        )
+    }
+    block = render_summary(arms)
+
+    assert "Throughput" in block
+    assert "/s" in block
+
+
+def test_throughput_is_reported_per_second_not_as_a_duration(tmp_path: Path) -> None:
+    """A duration depends on batch size; a rate does not. "45 seconds" says nothing
+    without the record count beside it, and the count is what a reader forgets first."""
+    arms = {
+        "adversarial": run_ablation(
+            "adversarial", records=60, seed=42, workdir=tmp_path, adapter=None, cache=None
+        )
+    }
+    scored = next(a for a in arms["adversarial"] if a.metrics is not None)
+
+    assert scored.metrics is not None
+    assert scored.metrics.throughput > 0
+    assert scored.metrics.seconds > 0
+
+
+def test_the_demo_target_can_be_run_twice(tmp_path: Path) -> None:
+    """`make demo` is the command the pitch video runs, and it has to survive take two.
+
+    Matches are append-only and a run id is unique (ADR-013), so reconciling into an
+    existing run id is refused — correctly. That made the demo target single-use: rehearse
+    once, then watch it error on camera. The target clears its own database first.
+    """
+    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    demo = makefile.split("demo:", 1)[1].split("\n\n", 1)[0]
+
+    assert "ledgerloop.db" in demo, "make demo does not clear its database — take two fails"

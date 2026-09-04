@@ -31,6 +31,10 @@ fmt:
 # Runs with no API key: Tier 3 is served entirely from the committed response cache
 # in fixtures/llm_cache (ADR-035). CI runs this target on every push.
 demo:
+	# Matches are append-only and a run id is unique (ADR-013), so reconciling into an
+	# existing run is refused -- correctly. Without this the target is single-use:
+	# rehearse once, then watch it error on camera during take two.
+	rm -f ledgerloop.db
 	ledgerloop generate --fixture adversarial --records 250
 	ledgerloop reconcile --run-id demo --fixture adversarial
 	ledgerloop report --run-id demo --fixture adversarial --html results/report.html
