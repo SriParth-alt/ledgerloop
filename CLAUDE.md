@@ -71,7 +71,7 @@ SQLite app); ORMs beyond SQLAlchemy Core; fine-tuning; multi-currency; auth or u
 ## Current status
 
 **Day 14 of 14.** 450 tests pass; ruff and mypy clean. Decisions are logged in
-`DECISIONS.md` (37 entries). `ARCHITECTURE.md` is the map; `DECISIONS.md` is the territory.
+`DECISIONS.md`. `docs/ARCHITECTURE.md` is the map; `DECISIONS.md` is the territory.
 
 **The HTML report is `ledgerloop report --html`** — §12's buffer-policy deliverable, written
 by `make demo` to `results/report.html`. `ledgerloop/report/html.py` is a **pure function**:

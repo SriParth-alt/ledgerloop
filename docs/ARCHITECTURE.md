@@ -3,7 +3,7 @@
 How LedgerLoop is put together, why it is shaped this way, and which of those choices
 survived contact with measurement.
 
-This is the map. [`DECISIONS.md`](DECISIONS.md) is the territory — 34 ADRs, most of them
+This is the map. [`DECISIONS.md`](../DECISIONS.md) is the territory — 34 ADRs, most of them
 written *after* a measurement contradicted something we believed. Where the two disagree,
 `DECISIONS.md` wins, because it is dated.
 
@@ -187,7 +187,7 @@ because one implementation proves nothing (ADR-024, ADR-031).
 
 ## What the numbers actually showed
 
-Generated figures live in [`results/metrics.md`](results/metrics.md) and are summarised in
+Generated figures live in [`results/metrics.md`](../results/metrics.md) and are summarised in
 the README. Three findings changed how the architecture should be *described*:
 
 **The cascade beats the LLM-only baseline on both axes at once** — higher auto-match and

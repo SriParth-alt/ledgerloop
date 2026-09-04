@@ -1,0 +1,50 @@
+# Exact versions this project was built and measured against.
+#
+# pyproject.toml carries the ranges the code is compatible with; this file carries the
+# resolution that produced the figures in results/. The distinction matters: a reviewer
+# reproducing a measured number should get the dependency set that measured it, not
+# whatever resolves today.
+#
+#   python -m pip install -r requirements.txt
+#   python -m pip install -e .            # then the project itself, no deps re-resolved
+#
+# Or, to develop rather than reproduce:
+#
+#   python -m pip install -e ".[dev]"     # ranges from pyproject.toml
+
+# --- runtime ---
+pandas==3.0.2
+pydantic==2.13.4
+python-dateutil==2.9.0.post0
+PyYAML==6.0.3
+RapidFuzz==3.14.5
+rich==15.0.0
+SQLAlchemy==2.0.52
+typer==0.25.1
+
+# HTTP client. Used by AnthropicAdapter, which is the unexercised second implementation
+# of the LLMAdapter Protocol (ADR-031). The Gemini path uses the SDK below.
+httpx==0.28.1
+
+# Tier 3's provider. Not needed to run the demo or the suite -- both are served from the
+# committed response cache -- but the import is lazy, so this only matters if you make a
+# live call.
+google-genai==2.21.0
+
+# Reads .env at the CLI composition root, so a key in a file behaves like a key in the
+# environment.
+python-dotenv==1.2.1
+
+# The API is a deliberate cut (ADR-030). `serve` exits non-zero rather than pretending to
+# run; these stay declared because the stub imports them and the stub stays in the tree so
+# the cut is visible rather than silently absent.
+fastapi==0.136.1
+uvicorn==0.49.0
+
+# --- development ---
+hypothesis==6.165.10
+mypy==2.3.1
+pytest==9.1.1
+pytest-cov==7.1.0
+ruff==0.16.4
+types-PyYAML==6.0.12.20260815

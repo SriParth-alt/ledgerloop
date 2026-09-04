@@ -155,6 +155,23 @@ build if either drifts. Timings are in [`results/throughput.md`](results/through
 kept outside that guarantee because a timing describes a machine rather than the code
 ([ADR-041](DECISIONS.md)).
 
+## What's in here
+
+```
+ledgerloop/          the matcher — tiers, gates, ingest, provenance, rules, report
+eval/                scoring. the only package permitted to read ground truth
+tests/               456 tests, none of which need an API key
+fixtures/llm_cache/  every model response, committed, so Tier 3 replays offline
+results/             generated figures — never hand-edited
+docs/                architecture notes
+demo.ps1             the demo for machines without make
+.env.example         required variables. none of them are needed to run anything
+```
+
+Full documentation index: [`docs/`](docs/README.md). The architecture is in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); every decision, with the alternatives
+rejected, is in [`DECISIONS.md`](DECISIONS.md).
+
 ## Design rules
 
 These are load-bearing, not style preferences. They are enforced by tests where possible.
