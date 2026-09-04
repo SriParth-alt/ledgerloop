@@ -234,3 +234,31 @@ def test_provenance_records_which_model_actually_decided(tmp_path: Path) -> None
     # And the converse: tiers 0-2 never call a model, so claiming one would be worse
     # than recording none.
     assert not lower_tiers
+
+
+def test_the_windows_script_runs_the_same_steps_as_make() -> None:
+    """`demo.ps1` exists because Windows has no `make` and `pip install -e .` leaves the
+    console script off `PATH`. The guide's bar is "works on ANY machine that follows your
+    setup instructions", and a judge on Windows hits both walls immediately.
+
+    Two scripts describing one demo will drift. This pins them together: whatever the
+    Makefile runs, the PowerShell script must run too.
+    """
+    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    script = (REPO_ROOT / "demo.ps1").read_text(encoding="utf-8")
+
+    demo = makefile.split("demo:", 1)[1].split("\n\n", 1)[0]
+    for line in demo.splitlines():
+        line = line.strip()
+        if not line.startswith("ledgerloop "):
+            continue
+        # Compare the command and its arguments, ignoring the whitespace the script uses
+        # to line the three invocations up for readability.
+        wanted = line.split()
+        assert any(
+            wanted == candidate.split()
+            for candidate in script.splitlines()
+            if candidate.strip().startswith("ledgerloop ")
+        ), f"demo.ps1 is missing: {line}"
+
+    assert "ledgerloop.db" in script, "demo.ps1 must clear the database so take two works"
