@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 
 from eval.ablation import estimate_calls, run_ablation, write_report
 from eval.harness import load_truth, score_run
-from eval.summary import render_summary, splice
+from eval.summary import render_summary, render_throughput, splice
 from ledgerloop.cli import app, console
 from ledgerloop.generate.synth import TRUTH_FILE
 from ledgerloop.llm.adapter import GEMINI_DEFAULT_MODEL, RateLimit, build_adapter
@@ -216,6 +216,12 @@ def evaluate(
             block = render_summary(results)
             summary_out.parent.mkdir(parents=True, exist_ok=True)
             summary_out.write_text(block.strip() + "\n", encoding="utf-8", newline="\n")
+            # Outside the drift check by design — see render_throughput.
+            (summary_out.parent / "throughput.md").write_text(
+                render_throughput(results).strip() + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
             if readme.exists():
                 splice(readme, block)
                 console.print(f"[green]spliced[/] results into {readme}")

@@ -316,17 +316,6 @@ def write_report(arms: dict[str, list[AblationArm]], out: Path) -> None:
         "",
         "## Configuration in force",
         "",
-        "Throughput is credits per second, timed around reconciliation only — including",
-        "generation and ingest would measure the fixture rather than the cascade. Track 04's",
-        "bar names it alongside accuracy and the exception list.",
-        "",
-        "**The two model arms are replayed from the committed response cache, so their",
-        "throughput excludes API latency.** Read as a comparison of matcher work it is fair;",
-        "read as wall-clock it flatters both of them, and it flatters the LLM-only baseline",
-        "most, because that arm makes the most calls. At roughly four seconds a call under",
-        "the free tier's pacing, its 165 live calls take minutes rather than the second and",
-        "a half shown here.",
-        "",
         "§9.1 requires reporting the MatchConfig alongside any metric. A tolerance-dependent",
         "number whose tolerance is unknown is not reproducible — and Tier 2's band alone was",
         "the difference between 4 matches and 41 (ADR-019).",
@@ -343,22 +332,20 @@ def write_report(arms: dict[str, list[AblationArm]], out: Path) -> None:
             "",
             f"## Fixture: `{fixture}` (seed 42)",
             "",
-            "| Configuration | Auto-match | Precision | False-match | Recall "
-            "| Throughput | Seconds | Posted | Wrong |",
-            "|---|---|---|---|---|---|---|---|---|",
+            "| Configuration | Auto-match | Precision | False-match | Recall | Posted | Wrong |",
+            "|---|---|---|---|---|---|---|",
         ]
         for arm in results:
             if arm.metrics is None:
                 lines.append(
                     f"| {arm.label} | *{arm.note}* | *{arm.note}* | *{arm.note}* "
-                    f"| *{arm.note}* | — | — | — | — |"
+                    f"| *{arm.note}* | — | — |"
                 )
                 continue
             m = arm.metrics
             lines.append(
                 f"| {arm.label} | {m.auto_match_rate:.1%} | {m.precision:.1%} "
                 f"| **{m.false_match_rate:.1%}** | {m.recall:.1%} "
-                f"| {m.throughput:,.0f}/s | {m.seconds:.2f} "
                 f"| {m.matches_posted} | {m.matches_incorrect} |"
             )
 

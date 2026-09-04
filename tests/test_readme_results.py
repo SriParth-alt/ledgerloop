@@ -210,23 +210,33 @@ def test_an_all_fixtures_run_does_splice_the_readme(tmp_path: Path) -> None:
 # --- throughput: the third of the track bar that was measured and never published ----
 
 
-def test_the_summary_publishes_throughput(tmp_path: Path) -> None:
+def test_throughput_is_published_with_its_own_caveats(tmp_path: Path) -> None:
     """Track 04's bar is "throughput plus measured accuracy plus an honest exception
     list", and the guide spells it out: report how many matched, **how fast**, and which
     ones could not be resolved.
 
     `RunMetrics.throughput` existed from day 8 with a docstring saying "the track bar asks
     for it explicitly" — and no table ever rendered it. Measured, then discarded.
+
+    It lives in its own file rather than the summary because CI proved it cannot live in
+    the drift-checked one: the same commit measured 1,340 credits/s locally and 952/s on
+    the runner (ADR-041).
     """
     arms = {
         "realistic": run_ablation(
             "realistic", records=60, seed=42, workdir=tmp_path, adapter=None, cache=None
         )
     }
-    block = render_summary(arms)
+    from eval.summary import render_throughput
 
-    assert "Throughput" in block
-    assert "/s" in block
+    block = render_throughput(arms)
+
+    assert "Credits/s" in block
+    # And it must disclaim itself: a timing is not reproducible across machines, and
+    # every other published figure is. Publishing it without that line would quietly
+    # weaken the guarantee that makes the others worth trusting.
+    assert "Not byte-reproducible" in block
+    assert "excludes API latency" in block
 
 
 def test_throughput_is_reported_per_second_not_as_a_duration(tmp_path: Path) -> None:

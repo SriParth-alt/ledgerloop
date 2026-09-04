@@ -47,4 +47,10 @@ jobs:
       - name: Results table is generated, not hand-written
         run: |
           ledgerloop evaluate --all-fixtures --out results/metrics.md
-          git diff --exit-code -- README.md results/
+          # results/throughput.md is excluded on purpose: a timing describes the
+          # machine it ran on, not the code. The same commit measures ~1,340
+          # credits/s on a laptop and ~950/s on this runner. Holding it to a
+          # byte-identical guarantee would mean a permanently red build, and
+          # loosening the guarantee for everything else to accommodate it would
+          # cost more than the number is worth.
+          git diff --exit-code -- README.md results/ ':!results/throughput.md'
