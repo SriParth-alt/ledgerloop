@@ -7,9 +7,13 @@ setup:
 test:
 	pytest
 
+# The strict sweep covers the cascade and the LLM surface -- the code where a type
+# error would move money. CLAUDE.md has described the gate this way since day 1 while the
+# Makefile checked three files; the documentation was ahead of the gate, so the gate moved.
 lint:
 	ruff check ledgerloop eval tests
 	mypy ledgerloop/money.py ledgerloop/generate/fee_model.py ledgerloop/llm/contract.py
+	mypy ledgerloop/cascade ledgerloop/llm --strict
 
 fmt:
 	ruff check --fix ledgerloop eval tests

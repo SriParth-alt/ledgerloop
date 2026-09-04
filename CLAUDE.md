@@ -30,7 +30,7 @@ These are the thesis of the project. Do not "improve" them without asking.
 ```
 make setup     # install deps
 make test      # pytest
-make lint      # ruff + mypy --strict on ledgerloop/cascade and ledgerloop/llm
+make lint      # ruff + mypy (3 money files) + mypy --strict on cascade and llm
 make demo      # generate → reconcile → report + results/report.html, no key needed
 make eval      # full ablation across fixtures, writes results/metrics.md
 ```

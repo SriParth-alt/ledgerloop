@@ -85,9 +85,18 @@ def _money_signature(row: BankRow) -> str:
     )
 
 
+#: The only tables fingerprints are ever read from. A table *name* cannot be bound as a
+#: query parameter, so it has to be interpolated — and an allowlist is what keeps that
+#: from becoming an injection point if a future caller ever passes something it read.
+_FINGERPRINT_TABLES = frozenset({"invoices", "settlements", "bank_txns"})
+
+
 def _seen_fingerprints(conn: Connection, table: str, run_id: str) -> set[str]:
+    if table not in _FINGERPRINT_TABLES:
+        raise ValueError(f"refusing to query an unrecognised table: {table!r}")
     rows = conn.execute(
-        text(f"SELECT row_sha256 FROM {table} WHERE run_id = :run_id"), {"run_id": run_id}
+        text(f"SELECT row_sha256 FROM {table} WHERE run_id = :run_id"),
+        {"run_id": run_id},
     )
     return {row[0] for row in rows}
 

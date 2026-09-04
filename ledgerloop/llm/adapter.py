@@ -212,7 +212,9 @@ class GeminiAdapter:
             temperature=TEMPERATURE,
             seed=GENERATION_SEED,
             max_output_tokens=MAX_OUTPUT_TOKENS,
-            thinking_config=types.ThinkingConfig(thinking_level=THINKING_LEVEL),
+            thinking_config=types.ThinkingConfig(
+                thinking_level=types.ThinkingLevel(THINKING_LEVEL)
+            ),
         )
 
     def _wait_for_slot(self) -> None:

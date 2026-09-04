@@ -1556,3 +1556,45 @@ Typer app. They passed or failed by collection order. They now import it themsel
 recording next to ADR-037: **a test whose outcome depends on what else ran is a test that
 will eventually lie to you**, and it lies in the direction of passing.
 
+---
+
+## ADR-040 — The lint gate now matches what the documentation claimed
+
+**Date:** 2026-09-02
+**Status:** Accepted
+
+**Context:** `CLAUDE.md` has described the lint gate as *"ruff + mypy --strict on
+ledgerloop/cascade and ledgerloop/llm"* since day 1. The Makefile ran `mypy` over **three
+files**. The wider sweep had **7 errors** the whole time, and CI never saw them, because CI
+runs the Makefile target.
+
+Nobody was misled by malice — the documentation was written describing the gate that was
+intended, and the gate never caught up. But a reader trusting `CLAUDE.md` would have
+believed the cascade and the LLM surface were strict-typed, and they were not.
+
+**Decision:** fix the 7 errors and widen the Makefile target to what the documentation
+says. The gate moved to the claim rather than the claim being quietly softened to the gate.
+
+**What the errors were,** none of them dangerous and one of them structural:
+
+* `_unique_by` in Tier 0 keyed on `object`, which erased the tuple structure of
+  `(amount, settled_on)`. That is why unpacking it needed a `type: ignore[misc]` and the
+  sort key needed a `type: ignore[index]` — two suppressions covering one loose annotation.
+  Made generic; both suppressions deleted. **A `type: ignore` is usually a hint that a type
+  further up is wrong**, and both of these were.
+* `ResponseCache.get` returned `Any` from `json.loads` while promising `str | None`.
+* `ThinkingConfig(thinking_level="low")` passed a `str` where the SDK's enum was expected.
+  It works — the SDK coerces — but the type now says what the runtime does.
+* `types-PyYAML` was never declared, so `yaml` was untyped in the strict sweep.
+
+**Also closed: the one interpolated SQL identifier.** `_seen_fingerprints` builds
+`SELECT ... FROM {table}` with an f-string. A table *name* cannot be bound as a query
+parameter, so interpolation is unavoidable — but it was unconstrained. It is reachable from
+exactly three hardcoded call sites today and was never injectable; it is now validated
+against an allowlist, so it cannot become injectable if a future caller passes something it
+read from a file. Every other query in the codebase binds its parameters.
+
+**Consequences:** 452 tests pass, both mypy invocations are clean, and `results/report.html`
+regenerates byte-identically — these were type and validation changes, not behaviour changes,
+and that was verified rather than assumed.
+

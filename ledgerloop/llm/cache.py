@@ -50,7 +50,8 @@ class ResponseCache:
         path = self.directory / f"{key}.json"
         if not path.exists():
             return None
-        return json.loads(path.read_text(encoding="utf-8"))["response"]
+        response = json.loads(path.read_text(encoding="utf-8"))["response"]
+        return str(response)
 
     def put(self, key: str, response: str) -> None:
         if self.directory is None:

@@ -34,6 +34,7 @@ import re
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import date
+from typing import TypeVar
 
 from ledgerloop.audit.provenance import MatchEvidence, ProposedMatch
 from ledgerloop.ingest.schemas import BankRow, SettlementRow
@@ -120,13 +121,19 @@ def utr_candidates(narration: str, *, rules: RuleStore = EMPTY_STORE) -> frozens
     return frozenset(tokens)
 
 
-def _unique_by(pairs: list[tuple[object, str]]) -> dict[object, str]:
+#: The composite key Tier 0 groups by: a reference token, or an (amount, date) pair.
+#: Generic rather than `object` so the tuple structure survives into the caller — using
+#: `object` erased it, which is what forced two `type: ignore` comments below.
+_Key = TypeVar("_Key")
+
+
+def _unique_by(pairs: list[tuple[_Key, str]]) -> dict[_Key, str]:
     """Keep only keys that map to exactly one identifier.
 
     This is the uniqueness guard. A key claimed by two rows is ambiguous, and ambiguity
     is never resolved by guessing.
     """
-    grouped: dict[object, list[str]] = defaultdict(list)
+    grouped: dict[_Key, list[str]] = defaultdict(list)
     for key, identifier in pairs:
         grouped[key].append(identifier)
     return {key: values[0] for key, values in grouped.items() if len(values) == 1}
@@ -215,12 +222,12 @@ def _match_on_amount_and_date(
 
     matches: list[ProposedMatch] = []
     for key, settlement_id in sorted(
-        settlement_by_key.items(), key=lambda item: (item[0][0], item[0][1])  # type: ignore[index]
+        settlement_by_key.items(), key=lambda item: (item[0][0], item[0][1])
     ):
         bank_txn_id = bank_by_key.get(key)
         if bank_txn_id is None:
             continue
-        amount, settled_on = key  # type: ignore[misc]
+        amount, settled_on = key
         matches.append(
             ProposedMatch(
                 bank_txn_id=bank_txn_id,
