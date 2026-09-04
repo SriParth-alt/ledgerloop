@@ -35,6 +35,11 @@ from ledgerloop.store.db import DEFAULT_DB_PATH, connect, run_exists
 #: (§7.4); temperature and seed only make the *first* call of a new prompt stable.
 DEFAULT_CACHE_DIR = Path("fixtures/llm_cache")
 
+#: The published table. Only a complete sweep may write here — a single-fixture run
+#: knows about one fixture, and replacing three with one looks exactly like a
+#: successful regeneration (ADR-039).
+PUBLISHED_METRICS = Path("results/metrics.md")
+
 
 @app.command()
 def report(
@@ -139,6 +144,19 @@ def evaluate(
     # completely — before reaching the rows that carry the argument. Answers are
     # cached, so a later --all-fixtures pass assembles the table for free.
     fixtures = ("easy", "realistic", "adversarial") if all_fixtures else (fixture,)
+
+    # Checked before any work: a run that is going to refuse to publish should refuse
+    # before it spends a quota, not after.
+    if not all_fixtures and out.resolve() == PUBLISHED_METRICS.resolve():
+        console.print(
+            f"[red]refusing to overwrite[/] {PUBLISHED_METRICS} with a single fixture."
+        )
+        console.print(
+            "It carries all three, and replacing them with one looks exactly like a "
+            "successful regeneration. Use [bold]--all-fixtures[/] to publish, or "
+            "[bold]--out[/] to write this run somewhere else."
+        )
+        raise typer.Exit(code=2)
 
     if estimate_only:
         total = 0

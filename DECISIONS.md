@@ -1550,6 +1550,18 @@ alone.
 **Consequences:** two tests pin both halves — a single-fixture run leaves the README
 byte-identical, and an `--all-fixtures` run still splices.
 
+**Amended after it recurred.** The first fix guarded `results/summary.md` and the README
+and left `--out`, which still defaulted to `results/metrics.md` — so the same failure was
+one flag away, through a door nobody had closed. It surfaced two days later while probing
+whether an API quota had reset, which is the third time this class has appeared during a
+routine operation rather than in a test.
+
+`evaluate` now refuses to write the published metrics path unless the sweep is complete,
+and it refuses **before doing any work** rather than after: a run that will not publish
+should not spend a quota first. The lesson generalises past this command — **when you
+close a hole, look for the other paths to the same file.** A guard on one writer of a
+shared artefact is a guard on one writer, not on the artefact.
+
 Both tests initially depended on some *other* test module having imported `eval.cli`
 during collection, since that import is what registers the `evaluate` command on the shared
 Typer app. They passed or failed by collection order. They now import it themselves. Worth

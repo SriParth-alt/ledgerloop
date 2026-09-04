@@ -265,3 +265,51 @@ def test_the_demo_target_can_be_run_twice(tmp_path: Path) -> None:
     demo = makefile.split("demo:", 1)[1].split("\n\n", 1)[0]
 
     assert "ledgerloop.db" in demo, "make demo does not clear its database — take two fails"
+
+
+def test_a_single_fixture_run_never_overwrites_the_published_metrics(
+    tmp_path: Path,
+) -> None:
+    """The same footgun ADR-039 closed, through the other door.
+
+    That ADR stopped a single-fixture run publishing to `results/summary.md` and the README.
+    It left `--out`, which still defaulted to `results/metrics.md` — so
+    `evaluate --fixture easy` would replace the full three-fixture table with an easy-only
+    one, and the replacement looks exactly like a successful regeneration.
+
+    Found while probing whether a quota had reset: the third time this class of bug has
+    surfaced during a routine operation rather than in a test.
+
+    Invoked with the real default so the guard is exercised against the path it protects.
+    Safe, because the refusal happens before any work — which is also the point: a run that
+    is going to refuse to publish should refuse before it spends a quota.
+    """
+    published = REPO_ROOT / "results" / "metrics.md"
+    before = published.read_bytes() if published.exists() else None
+
+    result = CliRunner().invoke(_cli(), [
+        "evaluate", "--fixture", "easy", "--records", "60", "--no-llm",
+        "--summary-out", str(tmp_path / "s.md"),
+        "--readme", str(tmp_path / "nonexistent.md"),
+    ])
+
+    assert result.exit_code != 0, result.output
+    assert "all-fixtures" in result.output
+    assert (published.read_bytes() if published.exists() else None) == before
+
+
+def test_a_single_fixture_run_writes_where_it_is_told_to(tmp_path: Path) -> None:
+    """The refusal must be about protecting the *published* path, not about making partial
+    runs useless. Point it somewhere else and it writes there."""
+    out = tmp_path / "scratch" / "easy.md"
+
+    result = CliRunner().invoke(_cli(), [
+        "evaluate", "--fixture", "easy", "--records", "60", "--no-llm",
+        "--out", str(out),
+        "--summary-out", str(tmp_path / "s.md"),
+        "--readme", str(tmp_path / "nonexistent.md"),
+    ])
+
+    assert result.exit_code == 0, result.output
+    assert out.exists()
+    assert "easy" in out.read_text(encoding="utf-8")
