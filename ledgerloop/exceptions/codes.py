@@ -80,6 +80,38 @@ HUMAN_RESOLVABLE: frozenset[ExceptionCode] = frozenset(
 #: Tier 3 sees at most eight pre-filtered candidates and may well resolve it.
 TERMINAL: frozenset[ExceptionCode] = frozenset({ExceptionCode.AMBIGUOUS_SUBSET})
 
+#: Codes a later match answers, so the match closes them as superseded (ADR-042).
+#:
+#: Each says only "this tier could not match the credit". POOL_TOO_LARGE falls through to
+#: Tier 3 by design (ADR-020); when Tier 3 then matches, leaving Tier 2's exception open
+#: reported a reconciled credit as money at risk. Closing records a resolution naming the
+#: match — the exception itself is never deleted or rewritten.
+#:
+#: Listed explicitly rather than as "everything except", so a new code has to be thought
+#: about before a match is allowed to silence it. Two are deliberately absent:
+#: DUPLICATE_SUSPECTED warns the money may be counted twice, and matching a re-post makes
+#: that more urgent, not less; AMBIGUOUS_SUBSET is a decision reserved for a human.
+SUPERSEDABLE: frozenset[ExceptionCode] = frozenset(
+    {
+        ExceptionCode.NO_CANDIDATE,
+        ExceptionCode.AMOUNT_BEYOND_TOLERANCE,
+        ExceptionCode.DATE_OUT_OF_WINDOW,
+        ExceptionCode.LOW_CONFIDENCE,
+        ExceptionCode.ORPHAN_CREDIT,
+        ExceptionCode.LLM_INVALID_OUTPUT,
+        ExceptionCode.POOL_TOO_LARGE,
+        ExceptionCode.MODEL_UNAVAILABLE,
+    }
+)
+
+#: Written into an exception's detail as ``raised_by`` by Tier 3.
+#:
+#: The same code can mean different things depending on who raised it.
+#: AMOUNT_BEYOND_TOLERANCE from a deterministic tier suggests the fee model is wrong; from
+#: Tier 3's arithmetic gate it means the model named settlements that do not add up. The
+#: queue needs to know which, or it sends the associate to the wrong place.
+RAISED_BY_TIER3 = "tier3"
+
 #: Codes that indicate a system problem rather than a data problem. A run producing
 #: many of these should be investigated before its metrics are trusted.
 SYSTEMIC: frozenset[ExceptionCode] = frozenset(

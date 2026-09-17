@@ -1658,3 +1658,82 @@ Publishing the flattering reading without that caveat would have been ADR-033's 
 second time — and ADR-033 is the one that records how a number wrong in our favour survived
 a green suite because nobody wants to check a pleasing result.
 
+---
+
+## ADR-042 — An exception ends when its question is answered, and the queue counts credits
+
+**Date:** 2026-09-14
+**Status:** Accepted. Fixes a defect in the published exception figures.
+
+**Context:** Found while rehearsing the live demo, by querying the database behind
+`ledgerloop exceptions` rather than reading its output. On the adversarial fixture, full
+cascade:
+
+* **14 credits Tier 3 matched still carried an open `POOL_TOO_LARGE`.** ADR-020 makes that
+  code non-terminal precisely so Tier 3 can try; nothing closed Tier 2's exception when
+  Tier 3 succeeded. The published breakdown's `POOL_TOO_LARGE 14` was exactly those
+  credits, and the published value at risk of ₹33,23,847.87 included ₹5,69,482.74 that
+  had been reconciled.
+* **The queue listed rows, not credits:** 108 rows across 67 credits, totalling
+  ₹58,93,470.39. The HTML report builds its queue from the same function, so one page
+  said 53 credits were in the queue, ₹33.2 lakh was at risk in the headline card, and
+  ₹58.9 lakh in the queue heading.
+* **`resolve --exception-id` said "from `ledgerloop exceptions`",** which never printed an
+  id. The agentic loop's front door could only be opened by querying SQLite.
+* **Every `AMOUNT_BEYOND_TOLERANCE` told the associate to check the fee model** — but in
+  this cascade that code is raised only by Tier 3's arithmetic gate, where it means the
+  model's proposal did not add up.
+
+Auto-match, precision, recall and false-match rate never read the exceptions table, and
+none of them moved.
+
+**Why the suite missed it.** Every queue test ran Tiers 0–2, where a credit collects at
+most one reason. `test_the_sweep_never_overwrites_a_reason_a_tier_already_gave` even
+asserts "a credit carries exactly one reason, not several" — true on the arm it runs, false
+on the configuration that was published. That is ADR-018's shape again: a property that
+holds on a partial configuration and breaks on the real one. And like ADR-037, it was found
+by looking at output meant for a human.
+
+**Decision:**
+
+1. **A match supersedes the reasons it answers.** When any tier matches a credit, its open
+   exceptions whose codes mean only "this tier could not match it" (`SUPERSEDABLE`) are
+   closed with `resolved_by = "cascade"`, naming the match and its tier.
+   `DUPLICATE_SUSPECTED` and `AMBIGUOUS_SUBSET` are never superseded.
+2. **The queue is one item per credit** — latest reason shown, earlier reasons kept as
+   history, money counted once. Scoring uses the same rule, "latest in the order the tiers
+   raised them", now explicit (`ORDER BY created_at, rowid`) rather than SQLite's default.
+3. **`resolve` closes every open exception on the credit,** and `exceptions` prints the id.
+4. **Tier 3 exceptions record `raised_by`,** and the queue gives a model proposal that did
+   not add up its own advice instead of the fee-model diagnosis.
+
+**On append-only.** Closing an exception fills its resolution columns in place. That is not
+new: `record_resolution` has done it since day 10. But ADR-014 exempts only a run's own
+lifecycle row, so it was an undocumented exception to a rule this project calls
+non-negotiable. It is recorded here instead of being widened quietly: an exception's
+*resolution state* is lifecycle, like a run's `finished_at`; what the exception *said* — its
+code, detail and value at risk — is never modified.
+
+**Alternatives considered:**
+- **Filter matched credits out at read time**, in the queue and in scoring. Lost: the data
+  would still say "open", and every future reader would have to remember the filter — the
+  two-sources-for-one-number problem ADR-036 exists to prevent.
+- **Record only each credit's final reason** once the cascade finishes. Lost: it discards
+  Tier 2's decline, which is the explanation for why Tier 3 was asked at all.
+- **Close every exception on a matched credit.** Lost: it would silence a duplicate warning
+  on exactly the credit where the warning matters most.
+- **An append-only resolutions table.** The stricter design, and deferred rather than
+  refused: it is a schema change touching every exception query, for a trail the current
+  columns already carry.
+
+**Consequences:** On adversarial the exception breakdown loses `POOL_TOO_LARGE 14`, value at
+risk is ₹27,54,365.13, and the queue holds 53 credits — the same figure in the CLI, the
+report's headline card and the report's queue, which
+`test_the_queue_and_the_scored_metrics_agree` now asserts. No match changed. Thirteen tests
+were added, including a guard that fails if the fixture ever stops containing a credit two
+tiers touched.
+
+The lesson extends ADR-037. That one said a field nothing reads is a field nobody notices is
+empty. This one: **a record type needs a defined way to end.** Every test here checked how
+exceptions were created, and none checked how they close.
+

@@ -1,8 +1,10 @@
 -- LedgerLoop store.
 --
--- APPEND-ONLY BY DESIGN. Corrections are new rows that supersede old ones; there are
--- no UPDATEs to match or exception rows. Provenance depends on this — an UPDATE
--- destroys the audit trail that the whole submission is built around.
+-- APPEND-ONLY FOR DECISIONS. What a match or an exception says is never rewritten:
+-- a corrected match is a new row that supersedes the old one. Two lifecycle fields are
+-- written in place by design — a run's finished_at and degraded (ADR-014), and an
+-- exception's resolution columns, filled when a human resolves it or a later tier's match
+-- answers it (ADR-042). Provenance depends on everything else never changing.
 --
 -- Every row carries run_id so that reconciliation runs are first-class, comparable
 -- objects (the ablation harness diffs them).
@@ -130,6 +132,8 @@ CREATE TABLE IF NOT EXISTS exceptions (
 CREATE INDEX IF NOT EXISTS idx_exc_run_code ON exceptions(run_id, reason_code);
 CREATE INDEX IF NOT EXISTS idx_exc_value ON exceptions(run_id, value_at_risk_paise DESC);
 
+-- Reserved, and not read or written by any code today. Approved rules live in
+-- ledgerloop/rules/store.yaml so a reviewer can diff exactly what was learned (ADR-028).
 CREATE TABLE IF NOT EXISTS rules (
     rule_id        TEXT PRIMARY KEY,
     created_at     TEXT NOT NULL,
@@ -141,6 +145,9 @@ CREATE TABLE IF NOT EXISTS rules (
 );
 
 -- ---------- convenience view ----------
+-- For ad-hoc inspection only; no code queries it. It counts exception ROWS, so a credit
+-- two tiers declined appears twice. Per-credit figures come from
+-- exceptions/clustering.py::open_exceptions and eval/harness.py (ADR-042).
 
 CREATE VIEW IF NOT EXISTS v_run_summary AS
 SELECT

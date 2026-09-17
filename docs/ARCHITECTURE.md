@@ -3,7 +3,7 @@
 How LedgerLoop is put together, why it is shaped this way, and which of those choices
 survived contact with measurement.
 
-This is the map. [`DECISIONS.md`](../DECISIONS.md) is the territory — 34 ADRs, most of them
+This is the map. [`DECISIONS.md`](../DECISIONS.md) is the territory — 42 ADRs, most of them
 written *after* a measurement contradicted something we believed. Where the two disagree,
 `DECISIONS.md` wins, because it is dated.
 

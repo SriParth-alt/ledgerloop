@@ -4,7 +4,7 @@
 | `easy` | T0 + T1 | 100.0% | 100.0% | **0.0%** | 0 |
 | `easy` | T0 + T1 + T2 | 100.0% | 100.0% | **0.0%** | 0 |
 | `easy` | Full cascade | 100.0% | 100.0% | **0.0%** | 0 |
-| `easy` | LLM-only baseline | *not yet measured* | — | — | — |
+| `easy` | LLM-only baseline | 100.0% | 100.0% | **0.0%** | 250 |
 | `realistic` | T0 only | 41.1% | 100.0% | **0.0%** | 0 |
 | `realistic` | T0 + T1 | 68.6% | 100.0% | **0.0%** | 0 |
 | `realistic` | T0 + T1 + T2 | 94.6% | 100.0% | **0.0%** | 0 |

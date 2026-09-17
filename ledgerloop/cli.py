@@ -183,9 +183,15 @@ def exceptions(
         console.print(f"[green]no open exceptions[/] for run {run_id}")
         return
 
+    # Items are credits, not exception rows: a credit two tiers declined is one thing to
+    # look at, and its money is at risk once (ADR-042).
     total = sum(item.value_at_risk_paise for item in items)
     console.print(
-        f"[bold]{len(items)} open exception(s)[/], Rs {total / 100:,.2f} at risk"
+        f"[bold]{len(items)} credit(s) with open exceptions[/], Rs {total / 100:,.2f} at risk"
+    )
+    console.print(
+        "[dim]Resolve one with: ledgerloop resolve --run-id "
+        f"{run_id} --exception-id <id> --settlement-id <settlement>[/]"
     )
     console.print()
 
@@ -204,7 +210,12 @@ def exceptions(
             f"  Rs {item.value_at_risk_paise / 100:>13,.2f}  "
             f"{item.code.value:<24} {item.bank_txn_id or '-'}"
         )
+        if item.history:
+            earlier = ", ".join(code.value for code in item.history)
+            console.print(f"      earlier: {earlier}")
         console.print(f"      {item.suggested_action}")
+        # `resolve --exception-id` needs this, and nothing else printed it.
+        console.print(f"      id {item.exception_id}")
 
 
 @app.command()

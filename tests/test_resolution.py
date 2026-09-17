@@ -22,9 +22,11 @@ from pathlib import Path
 import pytest
 from sqlalchemy import text
 
+from ledgerloop.audit.provenance import ProposedException, record_exception
 from ledgerloop.cascade.orchestrator import reconcile
 from ledgerloop.cascade.tier0_exact import normalise_utr
 from ledgerloop.exceptions.clustering import open_exceptions
+from ledgerloop.exceptions.codes import ExceptionCode
 from ledgerloop.generate.chaos import ADVERSARIAL, ChaosFlag, ChaosProfile, noisy_narration
 from ledgerloop.generate.synth import generate_batch, generate_fixture
 from ledgerloop.ingest.loader import load_batch
@@ -153,6 +155,39 @@ def test_a_resolved_exception_leaves_the_queue(reconciled) -> None:
     )
 
     assert len(open_exceptions(conn, RUN_ID)) == len(before) - 1
+
+
+def test_resolving_a_credit_closes_every_reason_it_carries(reconciled) -> None:
+    """The queue is per credit (ADR-042), so a resolution must be too. A human who says
+    "this credit is explained by that settlement" has answered every reason the cascade
+    gave for it; closing only one row would leave the credit sitting in the queue."""
+    conn = reconciled
+    item = open_exceptions(conn, RUN_ID)[0]
+    record_exception(
+        conn,
+        RUN_ID,
+        ProposedException(
+            code=ExceptionCode.LLM_INVALID_OUTPUT,
+            bank_txn_id=item.bank_txn_id,
+            settlement_id=None,
+            value_at_risk_paise=item.value_at_risk_paise,
+            detail={},
+        ),
+    )
+    latest = next(i for i in open_exceptions(conn, RUN_ID) if i.bank_txn_id == item.bank_txn_id)
+
+    record_resolution(
+        conn, RUN_ID, latest.exception_id, settlement_id="STL00001", resolved_by="analyst"
+    )
+    remaining = conn.execute(
+        text(
+            "SELECT COUNT(*) FROM exceptions "
+            "WHERE run_id = :r AND bank_txn_id = :b AND resolved_at IS NULL"
+        ),
+        {"r": RUN_ID, "b": item.bank_txn_id},
+    ).scalar_one()
+
+    assert remaining == 0
 
 
 def test_resolving_does_not_promote(reconciled, tmp_path: Path) -> None:

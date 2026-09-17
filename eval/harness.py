@@ -88,11 +88,15 @@ def score_run(
     ):
         posted[row.bank_txn_id] = frozenset(json.loads(row.settlement_ids_json))
 
+    # One reason per credit: the latest, in the order the tiers raised them. Explicit
+    # rather than trusting SQLite's unordered default, and the same rule the exception
+    # queue uses, so the published figures and the queue cannot disagree (ADR-042).
     exceptions: dict[str, str] = {}
     for row in conn.execute(
         text(
             "SELECT bank_txn_id, reason_code FROM exceptions "
-            "WHERE run_id = :run AND bank_txn_id IS NOT NULL AND resolved_at IS NULL"
+            "WHERE run_id = :run AND bank_txn_id IS NOT NULL AND resolved_at IS NULL "
+            "ORDER BY created_at, rowid"
         ),
         {"run": run_id},
     ):

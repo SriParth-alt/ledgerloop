@@ -69,7 +69,7 @@ with the alternatives rejected and what the choice costs.
 | `easy` | T0 + T1 | 100.0% | 100.0% | **0.0%** | 0 |
 | `easy` | T0 + T1 + T2 | 100.0% | 100.0% | **0.0%** | 0 |
 | `easy` | Full cascade | 100.0% | 100.0% | **0.0%** | 0 |
-| `easy` | LLM-only baseline | *not yet measured* | — | — | — |
+| `easy` | LLM-only baseline | 100.0% | 100.0% | **0.0%** | 250 |
 | `realistic` | T0 only | 41.1% | 100.0% | **0.0%** | 0 |
 | `realistic` | T0 + T1 | 68.6% | 100.0% | **0.0%** | 0 |
 | `realistic` | T0 + T1 + T2 | 94.6% | 100.0% | **0.0%** | 0 |
@@ -160,7 +160,7 @@ kept outside that guarantee because a timing describes a machine rather than the
 ```
 ledgerloop/          the matcher — tiers, gates, ingest, provenance, rules, report
 eval/                scoring. the only package permitted to read ground truth
-tests/               456 tests, none of which need an API key
+tests/               the full suite, none of which needs an API key
 fixtures/llm_cache/  every model response, committed, so Tier 3 replays offline
 results/             generated figures — never hand-edited
 docs/                architecture notes
@@ -188,12 +188,14 @@ These are load-bearing, not style preferences. They are enforced by tests where 
 
 ## Status
 
-In progress. 406 tests pass.
+Submitted, and still being hardened. 471 tests pass as of 14 September 2026; ruff and both
+mypy passes are clean.
 
 **Implemented and tested:** money arithmetic (integer paise), the MDR/GST/TDS fee model and
 settlement-date math, the Tier 3 LLM output contract, exception reason codes, and the SQL
 schema. The synthetic data generator — all twelve chaos injectors from `PROJECT_SPEC.md`
-§5.5, seeded and byte-identical reproducible, with ground truth. Ingest — SHA-256 row
+§5.5, plus a thirteenth, `FEE_DRIFT`, added to measure rule promotion — seeded and
+byte-identical reproducible, with ground truth. Ingest — SHA-256 row
 fingerprinting, idempotent load (re-running a file is a no-op), quarantine with source file
 and line number, and `DUPLICATE_SUSPECTED` detection for a credit re-posted under a new
 transaction id. Tier 0 — exact reference matching and unique amount-and-date matching, both
@@ -262,12 +264,19 @@ still wrong. A different settlement set can reconcile to the same rupee on a nea
 [ADR-034](DECISIONS.md) states this plainly rather than letting "every proposal is
 re-verified" be read as "a wrong match is impossible".
 
-**Measured so far:** every arm of the §9.2 ablation on `adversarial` and `realistic`,
-including the LLM-only control; the three deterministic arms on all three fixtures. The
-`easy` LLM-only arm alone is outstanding — a full sweep needs 677 requests and the free
-tier allows 500 a day, so it is finished in a second sitting. An interrupted arm reports
-*not yet measured* rather than a rate over the part of the fixture that fit inside a quota
-window ([ADR-032](DECISIONS.md)).
+**The exception queue counts credits, not rows.** A credit Tier 2 declines as too large to
+search falls through to Tier 3 by design; when Tier 3 then matched it, the Tier 2
+exception used to stay open, and the queue added up every row a credit carried. Both
+overstated the money at risk. A match now closes the "could not match" reasons it answers,
+the queue shows each credit once, and a test asserts the queue and the scored figures agree
+([ADR-042](DECISIONS.md)).
+
+**Every arm of the §9.2 ablation is measured,** on all three fixtures, including the
+LLM-only control. A full sweep needs 677 requests and the free tier allows 500 a day, so
+the `easy` LLM-only arm was completed in a later sitting — answers already bought were
+reused from the cache and only the missing ones were requested. Until then it read *not yet
+measured*, because an interrupted arm never reports a rate over the part of the fixture that
+fit inside a quota window ([ADR-032](DECISIONS.md)).
 
 See [`results/metrics.md`](results/metrics.md) — that file is generated, and no figure from
 it is reproduced by hand anywhere in this README.

@@ -70,7 +70,7 @@ SQLite app); ORMs beyond SQLAlchemy Core; fine-tuning; multi-currency; auth or u
 
 ## Current status
 
-**Day 14 of 14.** 450 tests pass; ruff and mypy clean. Decisions are logged in
+**Submitted; preparing for interviews.** 471 tests pass; ruff and both mypy passes clean. Decisions are logged in
 `DECISIONS.md`. `docs/ARCHITECTURE.md` is the map; `DECISIONS.md` is the territory.
 
 **The HTML report is `ledgerloop report --html`** — §12's buffer-policy deliverable, written
@@ -111,9 +111,17 @@ adjudications against 165. On `realistic`, 94.6% against 74.1%. Both arms run th
 so the gates are not what separates them; how many questions the model was asked is. See
 ADR-034, and do not restore wording implying the gates make a false match impossible.
 
-**Outstanding:** the `easy` LLM-only arm alone. The free tier's 500/day ran out. Run
-`evaluate --fixture easy` on a fresh quota, then `evaluate --all-fixtures` to assemble — the
-second pass costs zero calls.
+**Every §9.2 arm is measured**, including `easy` LLM-only, completed on 14 Sep 2026 from a
+warm cache plus 103 new calls. Those calls were unintended: in Windows PowerShell
+`$env:GEMINI_API_KEY=""` *deletes* the variable, so `load_dotenv()` supplied the key from
+`.env`. For a keyless regeneration use Bash — `GEMINI_API_KEY= GOOGLE_API_KEY= ledgerloop …`
+keeps them set-but-empty — and confirm "New API calls" is 0.
+
+**Exception lifecycle (ADR-042, not yet committed as of 14 Sep 2026).** A match closes the
+credit's earlier `SUPERSEDABLE` exceptions via `supersede_exceptions`; the queue is one item
+per credit; `resolve` closes every open exception on a credit; Tier 3 exceptions carry
+`raised_by`. `test_the_queue_and_the_scored_metrics_agree` pins the queue to the scored
+figures — do not reintroduce row-summing. CI now calls `make lint`.
 
 **Day 14:** record the 5-minute pitch and submit. A static HTML report was scoped as the
 optional extra and is the first thing to cut.

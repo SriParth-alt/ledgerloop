@@ -41,6 +41,7 @@ from ledgerloop.audit.provenance import (
     TierResult,
     record_exception,
     record_match,
+    supersede_exceptions,
 )
 from ledgerloop.cascade.tier0_exact import match_tier0
 from ledgerloop.cascade.tier1_tolerant import match_tier1
@@ -165,8 +166,14 @@ def reconcile(
         version = PROMPT_VERSION if tier == 3 else None
 
         for match in result.matches:
-            record_match(
+            match_id = record_match(
                 conn, run_id, match, model_name=decided_by, prompt_version=version
+            )
+            # A match answers every "could not match" reason an earlier tier gave this
+            # credit. POOL_TOO_LARGE falls through to Tier 3 on purpose; when Tier 3 then
+            # matches, Tier 2's exception must not stay open as money at risk (ADR-042).
+            supersede_exceptions(
+                conn, run_id, match.bank_txn_id, match_id=match_id, tier=tier
             )
             claimed_bank.add(match.bank_txn_id)
             claimed_settlements.update(match.settlement_ids)

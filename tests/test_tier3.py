@@ -189,6 +189,21 @@ def test_a_proposal_whose_arithmetic_fails_is_rejected_however_confident() -> No
     assert [item.code for item in result.exceptions] == [ExceptionCode.AMOUNT_BEYOND_TOLERANCE]
 
 
+def test_a_tier_three_exception_says_where_it_came_from() -> None:
+    """AMOUNT_BEYOND_TOLERANCE from the arithmetic gate means the model's proposal did not
+    add up — not that the fee model is wrong. The queue can only advise the right action
+    if the exception records which tier raised it (ADR-042)."""
+    from ledgerloop.exceptions.codes import RAISED_BY_TIER3
+
+    result, _ = _run(
+        [bank(credit=999_999)],
+        [settlement("STL1", net=300)],
+        [match_response(["STL1"], confidence=0.99)],
+    )
+
+    assert result.exceptions[0].detail.get("raised_by") == RAISED_BY_TIER3
+
+
 def test_a_low_confidence_proposal_becomes_a_queue_item() -> None:
     result, _ = _run([bank()], [settlement("STL1")], [match_response(["STL1"], confidence=0.5)])
 

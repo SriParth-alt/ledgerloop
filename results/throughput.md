@@ -18,17 +18,18 @@ minutes, not the second or two shown here.
 
 | Fixture | Configuration | Credits/s | Seconds | Credits |
 |---|---|---|---|---|
-| `easy` | T0 only | 6,500 | 0.04 | 250 |
-| `easy` | T0 + T1 | 6,266 | 0.04 | 250 |
-| `easy` | T0 + T1 + T2 | 6,460 | 0.04 | 250 |
-| `easy` | Full cascade | 6,186 | 0.04 | 250 |
-| `realistic` | T0 only | 4,707 | 0.04 | 185 |
-| `realistic` | T0 + T1 | 3,125 | 0.06 | 185 |
-| `realistic` | T0 + T1 + T2 | 2,995 | 0.06 | 185 |
-| `realistic` | Full cascade | 2,821 | 0.07 | 185 |
-| `realistic` | LLM-only baseline | 1,132 | 0.16 | 185 |
-| `adversarial` | T0 only | 3,918 | 0.04 | 165 |
-| `adversarial` | T0 + T1 | 2,225 | 0.07 | 165 |
-| `adversarial` | T0 + T1 + T2 | 2,112 | 0.08 | 165 |
-| `adversarial` | Full cascade | 1,291 | 0.13 | 165 |
-| `adversarial` | LLM-only baseline | 1,064 | 0.16 | 165 |
+| `easy` | T0 only | 3,401 | 0.07 | 250 |
+| `easy` | T0 + T1 | 3,328 | 0.08 | 250 |
+| `easy` | T0 + T1 + T2 | 3,419 | 0.07 | 250 |
+| `easy` | Full cascade | 3,202 | 0.08 | 250 |
+| `easy` | LLM-only baseline | 1,276 | 0.20 | 250 |
+| `realistic` | T0 only | 3,266 | 0.06 | 185 |
+| `realistic` | T0 + T1 | 1,964 | 0.09 | 185 |
+| `realistic` | T0 + T1 + T2 | 1,821 | 0.10 | 185 |
+| `realistic` | Full cascade | 1,831 | 0.10 | 185 |
+| `realistic` | LLM-only baseline | 863 | 0.21 | 185 |
+| `adversarial` | T0 only | 3,272 | 0.05 | 165 |
+| `adversarial` | T0 + T1 | 1,699 | 0.10 | 165 |
+| `adversarial` | T0 + T1 + T2 | 1,497 | 0.11 | 165 |
+| `adversarial` | Full cascade | 946 | 0.17 | 165 |
+| `adversarial` | LLM-only baseline | 870 | 0.19 | 165 |

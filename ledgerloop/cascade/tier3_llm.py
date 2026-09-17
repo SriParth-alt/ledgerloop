@@ -34,7 +34,7 @@ from ledgerloop.cascade.gates import run_all_gates
 from ledgerloop.cascade.tier1_tolerant import name_similarity, reference_distance
 from ledgerloop.cascade.tier2_subsetsum import candidate_pool
 from ledgerloop.config import DEFAULT_MATCH_CONFIG, MatchConfig
-from ledgerloop.exceptions.codes import ExceptionCode
+from ledgerloop.exceptions.codes import RAISED_BY_TIER3, ExceptionCode
 from ledgerloop.generate.fee_model import SETTLEMENT_FEE_MODEL, FeeModel
 from ledgerloop.ingest.schemas import BankRow, SettlementRow
 from ledgerloop.llm.adapter import DEFAULT_MODEL, LLMAdapter
@@ -178,7 +178,8 @@ def match_tier3(
                             "No model was reachable and no cached response exists. The "
                             "batch completed without Tier 3; auto-match rate falls, "
                             "correctness does not."
-                        )
+                        ),
+                        "raised_by": RAISED_BY_TIER3,
                     },
                 )
             )
@@ -248,7 +249,12 @@ def match_tier3(
 def _rejected(bank_txn: BankRow, outcome: object) -> ProposedException:
     """Turn a gate rejection into a queue item that says which gate and why."""
     code = getattr(outcome, "exception_code", None) or ExceptionCode.LLM_INVALID_OUTPUT
-    detail: dict[str, object] = {"note": getattr(outcome, "detail", "")}
+    # `raised_by` lets the queue tell a model proposal that did not add up apart from a
+    # fee model that is wrong — same code, different problem (ADR-042).
+    detail: dict[str, object] = {
+        "note": getattr(outcome, "detail", ""),
+        "raised_by": RAISED_BY_TIER3,
+    }
     hallucinated = getattr(outcome, "hallucinated_ids", ())
     if hallucinated:
         detail["hallucinated_ids"] = list(hallucinated)
@@ -268,5 +274,8 @@ def _declined(bank_txn: BankRow, reason: str | None) -> ProposedException:
         bank_txn_id=bank_txn.bank_txn_id,
         settlement_id=None,
         value_at_risk_paise=bank_txn.credit_paise,
-        detail={"note": reason or "model found no candidate that explains this credit"},
+        detail={
+            "note": reason or "model found no candidate that explains this credit",
+            "raised_by": RAISED_BY_TIER3,
+        },
     )

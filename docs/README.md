@@ -13,7 +13,7 @@ Read this first.
 ## [../DECISIONS.md](../DECISIONS.md)
 
 The territory. Every architectural decision, dated, with the alternatives rejected and what
-the choice cost — 41 of them.
+the choice cost — 42 of them.
 
 It is not a tidy record written afterwards. Most entries were written *because a
 measurement contradicted something we believed*, and several document defects that a green

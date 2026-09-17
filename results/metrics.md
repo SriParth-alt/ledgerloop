@@ -35,7 +35,7 @@ the difference between 4 matches and 41 (ADR-019).
 | T0 + T1 | 100.0% | 100.0% | **0.0%** | 100.0% | 250 | 0 |
 | T0 + T1 + T2 | 100.0% | 100.0% | **0.0%** | 100.0% | 250 | 0 |
 | Full cascade | 100.0% | 100.0% | **0.0%** | 100.0% | 250 | 0 |
-| LLM-only baseline | *not yet measured* | *not yet measured* | *not yet measured* | *not yet measured* | — | — |
+| LLM-only baseline | 100.0% | 100.0% | **0.0%** | 100.0% | 250 | 0 |
 
 Credits in fixture: 250 (250 explainable; the remainder are orphans and re-posts that no matcher should resolve).
 
@@ -47,7 +47,7 @@ Credits in fixture: 250 (250 explainable; the remainder are orphans and re-posts
 | T0 + T1 | — |
 | T0 + T1 + T2 | — |
 | Full cascade | — |
-| LLM-only baseline | *not yet measured* |
+| LLM-only baseline | — |
 
 ### Model usage
 
@@ -61,6 +61,7 @@ hold.
 | Configuration | Adjudications | New API calls | Hallucinated ids |
 |---|---|---|---|
 | Full cascade | 0 | 0 | 0 |
+| LLM-only baseline | 250 | 0 | 0 |
 
 ## Fixture: `realistic` (seed 42)
 
@@ -117,7 +118,7 @@ Credits in fixture: 165 (156 explainable; the remainder are orphans and re-posts
 | T0 only | DUPLICATE_SUSPECTED 1, NO_CANDIDATE 142 |
 | T0 + T1 | DUPLICATE_SUSPECTED 1, NO_CANDIDATE 121 |
 | T0 + T1 + T2 | AMBIGUOUS_SUBSET 4, DUPLICATE_SUSPECTED 1, NO_CANDIDATE 8, POOL_TOO_LARGE 54 |
-| Full cascade | AMBIGUOUS_SUBSET 4, AMOUNT_BEYOND_TOLERANCE 19, LLM_INVALID_OUTPUT 19, NO_CANDIDATE 11, POOL_TOO_LARGE 14 |
+| Full cascade | AMBIGUOUS_SUBSET 4, AMOUNT_BEYOND_TOLERANCE 19, LLM_INVALID_OUTPUT 19, NO_CANDIDATE 11 |
 | LLM-only baseline | AMOUNT_BEYOND_TOLERANCE 40, LLM_INVALID_OUTPUT 27, NO_CANDIDATE 9 |
 
 ### Model usage
@@ -134,9 +135,6 @@ hold.
 | Full cascade | 61 | 0 | 0 |
 | LLM-only baseline | 165 | 0 | 0 |
 
-## Not yet measured
+## Coverage
 
-1 arm(s) carry no number. Reason: no model configured. A partially answered arm is reported as unmeasured rather than scored over
-the fraction of the fixture that fit inside a quota window — that figure would
-be unreproducible and would still get quoted. Answers already paid for are
-cached, so resuming costs nothing for them.
+Every arm of §9.2 carries a measured number, including the LLM-only control.

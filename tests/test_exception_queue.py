@@ -261,3 +261,59 @@ def test_a_single_exception_is_not_reported_as_a_pattern(swept) -> None:
 
     assert lonely.count == 1
     assert "wrong assumption" not in lonely.diagnosis.lower()
+
+
+# =================================================================================
+# One item per credit (ADR-042)
+# =================================================================================
+
+
+def test_a_credit_with_two_reasons_is_one_item_showing_the_latest(swept) -> None:
+    """Tier 2 declines, Tier 3 rejects: one credit, two rows. The associate sees the
+    credit once, with the last tier's word first and the earlier reason kept as history
+    — and its money counted once."""
+    conn, _ = swept
+    _raise(conn, ExceptionCode.POOL_TOO_LARGE, credit="BNKTWO", value=7_77_77_700)
+    _raise(conn, ExceptionCode.AMOUNT_BEYOND_TOLERANCE, credit="BNKTWO", value=7_77_77_700)
+
+    items = [item for item in open_exceptions(conn, RUN_ID) if item.bank_txn_id == "BNKTWO"]
+
+    assert len(items) == 1
+    assert items[0].code is ExceptionCode.AMOUNT_BEYOND_TOLERANCE
+    assert items[0].history == (ExceptionCode.POOL_TOO_LARGE,)
+
+
+def test_a_model_proposal_that_did_not_add_up_is_not_blamed_on_the_fee_model(swept) -> None:
+    """Every AMOUNT_BEYOND_TOLERANCE in this cascade comes from Tier 3's arithmetic gate:
+    the model named settlements whose sum was wrong, and Python refused. Advising the
+    associate to check the fee model sends them to the wrong place — during a live demo,
+    on screen."""
+    from ledgerloop.exceptions.codes import RAISED_BY_TIER3
+
+    conn, _ = swept
+    for index in range(12):
+        record_exception(
+            conn,
+            RUN_ID,
+            ProposedException(
+                code=ExceptionCode.AMOUNT_BEYOND_TOLERANCE,
+                bank_txn_id=f"BNKM{index}",
+                settlement_id=None,
+                value_at_risk_paise=1_000,
+                detail={"raised_by": RAISED_BY_TIER3},
+            ),
+        )
+
+    items = [
+        item
+        for item in open_exceptions(conn, RUN_ID)
+        if (item.bank_txn_id or "").startswith("BNKM")
+    ]
+    diagnosis = cluster(items)[0].diagnosis.lower()
+
+    assert len(items) == 12
+    for item in items:
+        assert "check whether the fee model" not in item.suggested_action.lower()
+        assert "add up" in item.suggested_action.lower()
+    assert "wrong assumption in the fee model" not in diagnosis
+    assert "add up" in diagnosis

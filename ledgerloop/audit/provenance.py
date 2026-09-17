@@ -23,9 +23,12 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection, bindparam, text
 
-from ledgerloop.exceptions.codes import ExceptionCode
+from ledgerloop.exceptions.codes import SUPERSEDABLE, ExceptionCode
+
+#: ``resolved_by`` for an exception a later tier's match answered, as opposed to a person.
+SUPERSEDED_BY_CASCADE = "cascade"
 
 
 @dataclass(frozen=True)
@@ -263,3 +266,39 @@ def record_exception(conn: Connection, run_id: str, exception: ProposedException
         },
     )
     return exception_id
+
+
+def supersede_exceptions(
+    conn: Connection, run_id: str, bank_txn_id: str, *, match_id: str, tier: int
+) -> int:
+    """Close a matched credit's open "could not match" exceptions; return how many.
+
+    Tier 2 declines a credit as POOL_TOO_LARGE, the credit falls through because only
+    ambiguity is terminal (ADR-020), and Tier 3 matches it. Before this existed the Tier 2
+    exception stayed open on a reconciled credit, so the queue listed it and scoring
+    counted its money as at risk (ADR-042).
+
+    Closing fills the resolution columns in place — the same mechanism a human resolution
+    has always used. The reason, detail and value are never touched, and the resolution
+    names the match that answered it, so the trail still shows what the earlier tier said
+    and why it no longer stands.
+
+    Only ``SUPERSEDABLE`` codes close. A duplicate warning and an ambiguity survive a match.
+    """
+    result = conn.execute(
+        text(
+            "UPDATE exceptions SET resolved_at = :at, resolved_by = :by, "
+            "resolution_json = :detail "
+            "WHERE run_id = :run AND bank_txn_id = :credit AND resolved_at IS NULL "
+            "AND reason_code IN :codes"
+        ).bindparams(bindparam("codes", expanding=True)),
+        {
+            "at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "by": SUPERSEDED_BY_CASCADE,
+            "detail": json.dumps({"superseded_by_match": match_id, "tier": tier}),
+            "run": run_id,
+            "credit": bank_txn_id,
+            "codes": sorted(code.value for code in SUPERSEDABLE),
+        },
+    )
+    return result.rowcount

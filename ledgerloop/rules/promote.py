@@ -396,18 +396,42 @@ def record_resolution(
     if settlement_row is None:
         raise KeyError(f"no settlement {settlement_id!r} in run {run_id!r}")
 
+    resolved_at = datetime.now(UTC).isoformat(timespec="seconds")
     conn.execute(
         text(
             "UPDATE exceptions SET resolved_at = :at, resolved_by = :by, "
             "resolution_json = :detail WHERE exception_id = :id"
         ),
         {
-            "at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "at": resolved_at,
             "by": resolved_by,
             "detail": json.dumps(
                 {"settlement_id": settlement_id, "bank_txn_id": row.bank_txn_id}
             ),
             "id": exception_id,
+        },
+    )
+    # A human answers the credit, not one row of it. The queue shows a credit once, with
+    # its latest reason (ADR-042); closing only that row would leave the earlier reasons
+    # open and the credit still in the queue after someone had settled it.
+    conn.execute(
+        text(
+            "UPDATE exceptions SET resolved_at = :at, resolved_by = :by, "
+            "resolution_json = :detail "
+            "WHERE run_id = :run AND bank_txn_id = :credit AND resolved_at IS NULL"
+        ),
+        {
+            "at": resolved_at,
+            "by": resolved_by,
+            "detail": json.dumps(
+                {
+                    "settlement_id": settlement_id,
+                    "bank_txn_id": row.bank_txn_id,
+                    "resolved_with": exception_id,
+                }
+            ),
+            "run": run_id,
+            "credit": row.bank_txn_id,
         },
     )
 
