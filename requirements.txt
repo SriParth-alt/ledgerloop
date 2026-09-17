@@ -36,8 +36,8 @@ google-genai==2.21.0
 python-dotenv==1.2.1
 
 # The API is a deliberate cut (ADR-030). `serve` exits non-zero rather than pretending to
-# run; these stay declared because the stub imports them and the stub stays in the tree so
-# the cut is visible rather than silently absent.
+# run, and nothing imports these today. They are pinned here for the planned service and
+# declared in pyproject.toml under the optional `api` extra, not as core dependencies.
 fastapi==0.136.1
 uvicorn==0.49.0
 
